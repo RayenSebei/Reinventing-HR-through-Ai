@@ -11,10 +11,12 @@ You need **Python 3.11 or newer**.
 ```bash
 cd vouch
 pip install -r requirements.txt
-python -m app --seed            # creates 4 demo users + a demo job, then starts the server
+python -m app --seed --yes      # confirms the wipe; creates users, a case and 10 synthetic CVs
 ```
 
-Open **http://127.0.0.1:8000** and use the quick sign-in buttons. Every demo password is `demo1234`.
+Open **http://127.0.0.1:8000** and sign in with a demo account. Every demo password is
+`demo1234`. Set `VOUCH_DEMO_MODE=1` to show the account shortcuts on the sign-in page;
+the shortcuts are hidden by default.
 
 | Demo user | Role | What they can do |
 |---|---|---|
@@ -23,21 +25,21 @@ Open **http://127.0.0.1:8000** and use the quick sign-in buttons. Every demo pas
 | auditor@vouch.demo | Auditor | read everything, check the ledger |
 | admin@vouch.demo | HR admin | read everything, check the ledger |
 
-Run the tests: `python -m pytest -q` (from `vouch/`). This includes all 24 SENTINEL attacks.
+Run backend tests: `python -m pytest -q` (from `vouch/`). This includes all 27
+SENTINEL scenarios: the original 24 plus three route-privacy regressions.
 
 ## The 5-minute demo
 
-1. **Recruiter, tab 2:** upload `sentinel/datasets/clean_cvs/clean_cv.pdf` and `adversarial_cvs/white_on_white.pdf` (plus `hidden_text.pdf`).
-   The trick CV shows a **red box** where the invisible text is, and the alert explains it. The hidden words never count as evidence.
-2. Click each candidate. Every criterion shows an **exact quote** from the CV (green box on the page), or "not found".
-3. **Tab 3:** "Rank candidates on evidence". Each score comes with its reasons. Confirm only after opening the top dossiers.
-4. **Tab 4:** draft an interview invitation. Nothing is sent yet.
-5. Switch to **manager** and press "Approve this exact content".
-6. Switch back to **recruiter**, press "Change time (+2 h)", then "Send through the gateway".
-   **The gateway refuses it:** the content changed after approval. (Draft again, approve, send, and it goes to the outbox.)
-7. **Assurance tab:** run the SENTINEL scenarios. SENTINEL attacks a separate copy of Vouch and shows the results live.
-
-Backup plan: record steps 1–7 once as a video before the pitch.
+1. Start at the **Command Center** for the hiring funnel, pending actions, ledger activity,
+   and SENTINEL status.
+2. Open **Cases** and introduce the scorecard, candidate list, and explicit shortlist.
+3. Use **Evidence** to show sourced quotes, page overlays, hidden text, and review findings.
+4. Open **Approvals** as a hiring manager and review the exact message and SHA-256 hash.
+   Editing the draft makes the earlier approval invalid for execution.
+5. Return as a recruiter, execute only an unchanged approved action through the Action
+   Gateway, and show its delivery state in the **Outbox**.
+6. Finish in **Trust Ledger** and **Assurance** to verify the chain and show scenario
+   outcomes. Presenter mode provides this five-minute sequence in the app.
 
 ## How it works
 
@@ -124,10 +126,10 @@ Original CVs stay on the Vouch server (`data/originals`, read-only). Only visibl
 
 ## Dashboard
 
-The v2 Command Center is available at `/`; the operational workflow remains at
-`/legacy` during the phased migration. All metrics come from the authenticated,
-case-scoped overview API. The current checkpoint is Phase 1; candidate evidence,
-ranking, approvals and other screen migrations follow visual approval.
+The React workspace is available at `/`: Command Center, cases and evidence,
+rankings and shortlist, compare, actions and outbox, approvals, ledger, assurance,
+and HR administration. The legacy route falls through to the same client-side app.
+All workspace APIs are authenticated and role-scoped.
 
 The committed `static/app/` build runs with Python alone. To develop the frontend:
 
@@ -137,21 +139,25 @@ npm ci --ignore-scripts
 npm run typecheck
 npm run lint
 npm run build
+npx playwright install chromium
+npm run test:e2e
 ```
 
 Use Node 24. `npm run dev` proxies `/api` to port 8000. The production build is the
-CSP verification target. Vite 7.3.7 is pinned because Vite 8's native bundler failed
-memory allocation on the demo laptop. Tests may need `OPENBLAS_NUM_THREADS=1` on
-memory-constrained Windows systems.
+CSP verification target. Playwright starts an isolated temporary database, seeds
+synthetic fixtures, checks all four roles, and writes screenshots for both target
+resolutions and themes under `frontend/test-results/screenshots/`. Vite 7.3.7 is
+pinned because Vite 8's native bundler failed memory allocation on the demo laptop.
+Tests may need `OPENBLAS_NUM_THREADS=1` on memory-constrained Windows systems.
 
 ## Security decisions
 
 The original CSP is retained: script and style sources remain self only, without
-unsafe-inline or unsafe-eval. The shadcn chart's generated style injector was
-removed; chart colours come from the local stylesheet. Sonner's pinned runtime
-CSS injection call is removed at build time and its official stylesheet is bundled
-as a local asset. The build fails if that known injector format changes. No CSP
-exception was needed in the browser checks performed for this checkpoint.
+unsafe-inline or unsafe-eval. Charts and progress indicators use local CSS/native
+elements rather than runtime style injection. Zod runs with JIT disabled to avoid
+its dynamic-code path under `script-src 'self'`. Sonner's pinned runtime CSS injection
+call is removed at build time and its official stylesheet is bundled as a local
+asset. The build fails if that known injector format changes.
 
 The new overview performs no writes, rejects unknown/duplicate query parameters,
 uses token identity and existing membership rules, and excludes unrelated ledger
@@ -167,3 +173,8 @@ proposed follow-ups are in [the architecture review](../docs/architecture-review
 Dependency versions are pinned in `frontend/package.json` and `package-lock.json`.
 A minimatch 11.0.1 override addresses the lint tool's glob amplification advisory.
 Direct dependency versions and licences are in [frontend dependencies](../docs/frontend-dependencies.md).
+
+Latest validation: 52 backend tests passed (including all 27 SENTINEL scenarios),
+frontend typecheck/lint/build passed, and 21 Playwright tests passed with no CSP
+violations. Playwright captures 16 role/resolution/theme screenshots under
+`frontend/test-results/screenshots/`.

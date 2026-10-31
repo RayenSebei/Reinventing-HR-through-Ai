@@ -7,7 +7,7 @@ Our entry for the **Secure AI HR System** hackathon.
 | Folder | What's inside |
 |---|---|
 | [`vouch/`](vouch/README.md) | **The app.** Backend, screens, tests. Start here. |
-| [`sentinel_hr/`](sentinel_hr/README.md) | Runs our 24 attack scenarios against Vouch, plus extra test CVs (French, Arabic, ...) |
+| [`sentinel_hr/`](sentinel_hr/README.md) | Runs 27 attack scenarios (24 original plus 3 route-privacy scenarios) against Vouch |
 | [`sentinel/`](sentinel/documentation/scenario_catalog.md) | The attack scenario library and synthetic CVs (unchanged) |
 | [`n8n/`](n8n/README.md) | n8n workflow that delivers approved emails, signature-checked |
 | [`project-review/`](project-review/) | Review, court verdict, architecture and roadmap |
@@ -15,17 +15,17 @@ Our entry for the **Secure AI HR System** hackathon.
 Quick start:
 
 ```bash
-cd vouch && pip install -r requirements.txt && python -m app --seed
+cd vouch && pip install -r requirements.txt && python -m app --seed --yes
 # open http://127.0.0.1:8000  (password for all demo users: demo1234)
 ```
 
-Current results: **24/24 attack scenarios blocked**, and **29/29 tests pass** (19 existing tests plus 10 dashboard tests). These come from our own tests on synthetic data, not a claim of production security. The committed attack report uses the stub model; a real-model run remains a separate validation step.
+Latest local validation: **52 backend tests passed**, including all 27 SENTINEL scenarios; **21 Playwright smoke tests passed** across four roles, two resolutions and both themes. Browser CSP checks found no violations. These are synthetic demo checks, not a claim of production security; a real-model run remains separate validation.
 
-The dashboard v2 Phase 1 preview is now available at `/`. It includes a live,
-role-scoped Command Center and keeps the operational screens at `/legacy`.
-See [the checkpoint](docs/dashboard-checkpoint.md), [architecture review](docs/architecture-review.md),
-and [dashboard plan](docs/dashboard-plan.md) for the scope and remaining work.
+The role-aware React workspace is available at `/`, with cases, evidence, ranking,
+approvals, ledger, assurance, and administration. The demo seed includes ten
+multilingual synthetic CVs, including three attack fixtures. See [the Vouch guide](vouch/README.md)
+for frontend and Playwright validation commands.
 
-Validation at this checkpoint: 29 tests pass (including the original 24 attack
-scenarios), plus frontend typecheck, lint and production build. This is synthetic
-demo validation, not a production security certification.
+The Playwright run also produces 16 workspace screenshots under
+`vouch/frontend/test-results/screenshots/`. This is synthetic demo validation,
+not a production security certification.

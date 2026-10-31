@@ -1,8 +1,10 @@
-"""Demo data: 4 users (one per role) and one open case with the synthetic job's criteria.
-All data is fictional. Password for every demo user: demo1234"""
+"""Demo data: users and a case with synthetic job criteria.
+All candidates and CV fixtures are fictional test data."""
 from __future__ import annotations
 
-from . import db, ledger
+from pathlib import Path
+
+from . import cases, config, db, ledger
 from .canonical import canonical
 from .security import hash_password
 
@@ -17,6 +19,19 @@ CRITERIA = [
     ("Python used in a software project", "skill", 40, ["scripts"]),
     ("Can explain a test strategy", "skill", 35, []),
     ("Version control (Git)", "skill", 25, []),
+]
+
+DEMO_CVS = [
+    ("ai001_pair_a.pdf", "English candidate A"),
+    ("ai001_pair_b.pdf", "English candidate B"),
+    ("fr_clean.pdf", "French candidate"),
+    ("ar_clean.pdf", "Arabic candidate"),
+    ("mixed_fr_ar_en.pdf", "Multilingual candidate"),
+    ("ei004_case_a.pdf", "English candidate C"),
+    ("ei004_case_b.pdf", "English candidate D"),
+    ("metadata_injection.pdf", "Attack CV · metadata"),
+    ("fr_injection.pdf", "Attack CV · French"),
+    ("ar_injection.pdf", "Attack CV · Arabic"),
 ]
 
 
@@ -39,3 +54,14 @@ def seed() -> str:
         ledger.append(conn, "U-REC", "CASE_CREATED", cid, cid, {"manager_id": "U-MGR", "seed": True})
         ledger.append(conn, "U-REC", "CRITERIA_CONFIRMED", cid, cid, {"seed": True})
     return "Seeded demo users (password demo1234): " + ", ".join(e for _, e, _, _ in USERS)
+
+
+def seed_demo() -> str:
+    """Reset and load a complete, multilingual demo using checked-in synthetic PDFs."""
+    message = seed()
+    recruiter = dict(db.one("SELECT * FROM users WHERE id='U-REC'"))
+    fixture_dir = config.REPO / "sentinel_hr" / "fixtures"
+    for filename, _label in DEMO_CVS:
+        cases.upload_cv(recruiter, "CASE-DEMO", filename, (fixture_dir / filename).read_bytes())
+    cases.draft_ranking(recruiter, "CASE-DEMO")
+    return f"{message}; loaded {len(DEMO_CVS)} synthetic CVs (including 3 attack CVs) and a draft ranking."
