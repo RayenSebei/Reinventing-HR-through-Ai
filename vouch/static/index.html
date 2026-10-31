@@ -3,44 +3,50 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vouch</title>
+<title>Vouch · Hiring with confidence</title>
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/app.js" defer></script>
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><span class="seal" aria-hidden="true">V</span><span>Vouch</span><small>evidence · authority · approval</small></div>
+  <a class="brand" href="/" aria-label="Vouch home"><span class="seal" aria-hidden="true">v<span>✓</span></span><span>vouch<span class="brand-dot">.</span></span></a>
+  <div class="top-context"><span class="context-mark" aria-hidden="true">▦</span> Talent workspace <span class="divider">/</span> <span class="muted">Recruitment</span></div>
   <div id="who" class="who" hidden></div>
 </header>
 
 <main id="app">
   <!-- Login -->
   <section id="login" class="login" hidden>
-    <h1>Sign in</h1>
-    <p class="muted">Synthetic demo data only. Every demo user's password is <code>demo1234</code>.</p>
+    <div class="login-story"><span class="eyebrow">THOUGHTFUL HIRING STARTS HERE</span><h1>Good people.<br>Clear evidence.<br><em>Confident decisions.</em></h1><p>A calmer way to review CVs, build your shortlist, and bring the right people into the conversation.</p><div class="story-card"><span class="story-check">✓</span><div><strong>Every decision has a source.</strong><p>See the evidence. Keep people in control.</p></div></div><div class="story-footer">VOUCH / YOUR HIRING WORKSPACE</div></div>
+    <div class="login-form-area"><span class="eyebrow">WELCOME TO VOUCH</span><h2>Make room for your next hire.</h2>
+    <p class="muted">Sign in to your hiring workspace.</p>
     <form id="loginForm" class="stack">
       <label for="email">Email</label>
-      <input id="email" type="email" autocomplete="username" required>
+      <input id="email" type="email" placeholder="you@company.com" autocomplete="username" required>
       <label for="password">Password</label>
-      <input id="password" type="password" autocomplete="current-password" required>
-      <button type="submit" class="primary">Sign in</button>
+      <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+      <button type="submit" class="primary">Sign in to workspace <span aria-hidden="true">→</span></button>
       <p id="loginError" class="error" role="alert" hidden></p>
     </form>
     <div class="quick">
-      <p class="muted">Quick sign-in</p>
+      <p class="quick-label">EXPLORE THE DEMO <span>No account needed</span></p>
       <div class="row wrap">
-        <button type="button" data-quick="recruiter@vouch.demo">Recruiter</button>
-        <button type="button" data-quick="manager@vouch.demo">Hiring manager</button>
-        <button type="button" data-quick="auditor@vouch.demo">Auditor</button>
-        <button type="button" data-quick="admin@vouch.demo">HR admin</button>
+        <button type="button" data-quick="recruiter@vouch.demo"><strong>Recruiter <span>↗</span></strong><small>Review CVs &amp; build a shortlist</small></button>
+        <button type="button" data-quick="manager@vouch.demo"><strong>Hiring manager <span>↗</span></strong><small>Review &amp; approve invitations</small></button>
+        <button type="button" data-quick="auditor@vouch.demo"><strong>Auditor <span>↗</span></strong><small>Follow the decision trail</small></button>
+        <button type="button" data-quick="admin@vouch.demo"><strong>HR admin <span>↗</span></strong><small>Oversee the workspace</small></button>
       </div>
     </div>
+    <p class="demo-note">Demo workspace · Fictional candidates only<br>All demo passwords: <code>demo1234</code></p></div>
   </section>
 
   <!-- Workspace -->
   <section id="workspace" class="workspace" hidden>
     <aside class="cases">
-      <div class="row between"><h2>Cases</h2><button id="newCaseBtn" type="button" hidden>New case</button></div>
+      <div class="workspace-label"><span class="workspace-avatar">W</span><div><strong>Your workspace</strong><small>Hiring, with confidence</small></div></div>
+      <div class="sidebar-label">RECRUITMENT</div>
+      <div class="sidebar-current"><span aria-hidden="true">▦</span> Hiring pipeline <span class="sidebar-count" id="caseCount">0</span></div>
+      <div class="row between case-label"><h2>OPEN ROLES</h2><button id="newCaseBtn" type="button" aria-label="Create a new hiring case" hidden>+ New</button></div>
       <form id="newCaseForm" class="stack card" hidden>
         <label for="ncTitle">Job title</label><input id="ncTitle" required maxlength="200">
         <label for="ncDesc">Description</label><textarea id="ncDesc" rows="3" maxlength="5000"></textarea>
@@ -48,46 +54,51 @@
         <div class="row"><button type="submit" class="primary">Create</button><button type="button" id="ncCancel">Cancel</button></div>
       </form>
       <ul id="caseList" class="caselist"></ul>
+      <div class="sidebar-bottom"><div class="sidebar-tip"><span class="tip-icon" aria-hidden="true">◇</span><strong>People make the final call.</strong><p>Vouch helps you find the evidence. Your team makes the decisions.</p></div><div class="environment"><span class="live-dot"></span> Local demo <span>v1.0</span></div></div>
     </aside>
 
     <div class="casepane" id="casePane">
-      <div id="noCase" class="empty">Pick a case on the left.</div>
+      <div id="noCase" class="empty"><h2>Your next great hire starts here.</h2><p>Select an open role from the sidebar, or create a new one.</p></div>
       <div id="caseView" hidden>
         <div class="casehead">
+          <div class="row between"><div class="breadcrumb">Hiring pipeline <span>/</span> Role overview</div><span class="pill ok"><span class="live-dot"></span> Open role</span></div>
+          <div class="eyebrow role-eyebrow">YOUR NEXT GREAT HIRE</div>
           <h1 id="caseTitle"></h1>
           <p id="caseDesc" class="muted"></p>
         </div>
-        <nav class="tabs" role="tablist">
-          <button role="tab" data-tab="criteria">1 · Criteria</button>
-          <button role="tab" data-tab="candidates">2 · CVs &amp; evidence</button>
-          <button role="tab" data-tab="shortlist">3 · Shortlist</button>
-          <button role="tab" data-tab="actions">4 · Actions &amp; approval</button>
-          <button role="tab" data-tab="ledger">Trust Ledger</button>
-          <button role="tab" data-tab="assurance">Assurance</button>
+        <div class="overview-grid" aria-label="Role summary"><div class="overview-stat"><span class="stat-icon">◎</span><div><span>Candidates</span><strong id="candidateCount">—</strong></div></div><div class="overview-stat"><span class="stat-icon">≡</span><div><span>Hiring criteria</span><strong id="criteriaCount">—</strong></div></div><div class="overview-stat"><span class="stat-icon">✓</span><div><span>Shortlist</span><strong id="shortlistOverview">Not started</strong></div></div><div class="overview-stat"><span class="stat-icon">↗</span><div><span>Invitations sent</span><strong id="sentCount">—</strong></div></div></div>
+        <nav class="tabs" role="tablist" aria-label="Hiring workflow">
+          <button role="tab" data-tab="criteria" id="tab-criteria" aria-controls="panel-criteria"><span class="step">1</span> Criteria</button>
+          <button role="tab" data-tab="candidates" id="tab-candidates" aria-controls="panel-candidates"><span class="step">2</span> Candidates</button>
+          <button role="tab" data-tab="shortlist" id="tab-shortlist" aria-controls="panel-shortlist"><span class="step">3</span> Shortlist</button>
+          <button role="tab" data-tab="actions" id="tab-actions" aria-controls="panel-actions"><span class="step">4</span> Invitations</button>
+          <button role="tab" data-tab="ledger" id="tab-ledger" aria-controls="panel-ledger">Activity log</button>
+          <button role="tab" data-tab="assurance" id="tab-assurance" aria-controls="panel-assurance">Security checks</button>
         </nav>
+        <div class="section-heading"><div><span class="eyebrow" id="panelEyebrow">STEP 01 / SET THE STANDARD</span><h2 id="panelTitle">Define what matters.</h2><p id="panelDescription" class="muted">A shared scorecard keeps every review focused and consistent.</p></div><button type="button" id="nextStep" class="primary" hidden>Review candidates →</button></div>
 
         <div id="banner" class="banner" role="alert" hidden></div>
 
         <!-- Criteria -->
         <section data-panel="criteria" class="panel">
-          <p class="muted">Only job-related criteria. Weights must add up to 100. Confirm them before uploading CVs.</p>
+          <div class="info-callout"><span aria-hidden="true">ⓘ</span><span>Use job-related criteria and give each a weight. The total must be <strong>100%</strong>. Confirm your scorecard before adding CVs.</span></div>
           <table class="grid"><thead><tr><th>Criterion</th><th>Type</th><th>Weight</th><th></th></tr></thead><tbody id="critBody"></tbody></table>
           <div class="row" id="critActions">
-            <button type="button" id="addCrit">Add criterion</button>
+            <button type="button" id="addCrit">+ Add criterion</button>
             <span id="weightSum" class="pill"></span>
             <button type="button" id="saveCrit" class="primary">Save criteria</button>
-            <button type="button" id="confirmCrit">Confirm criteria</button>
+            <button type="button" id="confirmCrit">Confirm scorecard</button>
           </div>
           <p id="critStatus" class="muted"></p>
         </section>
 
         <!-- Candidates -->
         <section data-panel="candidates" class="panel" hidden>
-          <form id="uploadForm" class="row wrap card">
-            <label for="cvFiles">Upload CVs (PDF)</label>
+          <form id="uploadForm" class="row wrap card upload-zone">
+            <span class="upload-icon" aria-hidden="true">↥</span><div class="upload-copy"><label for="cvFiles">Bring your candidates into focus</label><p>Choose PDF CVs to check for evidence and suspicious content.</p><small>PDF only · Up to 5 MB and 10 pages per file</small></div>
             <input id="cvFiles" type="file" accept="application/pdf" multiple>
-            <button type="submit" class="primary">Upload &amp; check</button>
-            <span id="uploadStatus" class="muted"></span>
+            <button type="submit" class="primary">Upload &amp; review</button>
+            <span id="uploadStatus" class="muted" role="status" aria-live="polite"></span>
           </form>
           <div class="split">
             <table class="grid"><thead><tr><th>Candidate</th><th>File</th><th>Alerts</th></tr></thead><tbody id="candBody"></tbody></table>
@@ -105,7 +116,7 @@
 
         <!-- Shortlist -->
         <section data-panel="shortlist" class="panel" hidden>
-          <p class="muted">The ranking is an aid. Nobody is rejected automatically. You decide.</p>
+          <div class="info-callout"><span aria-hidden="true">ⓘ</span><span>Scores reflect your criteria and the evidence found in each CV. <strong>Review the dossiers before confirming.</strong> Nobody is rejected automatically.</span></div>
           <div class="row"><button type="button" id="draftRank" class="primary">Rank candidates on evidence</button><span id="rankState" class="pill"></span></div>
           <table class="grid"><thead><tr><th>#</th><th>Candidate</th><th>Score</th><th>Criteria</th><th>Flags</th><th>Why</th></tr></thead><tbody id="rankBody"></tbody></table>
           <div class="row"><button type="button" id="confirmRank">I reviewed the dossiers. Confirm shortlist</button><span id="confirmHint" class="muted"></span></div>
@@ -121,7 +132,7 @@
             <button type="submit" class="primary">Draft action</button>
           </form>
           <div id="propList" class="proplist"></div>
-          <h3>Sent (sandbox outbox)</h3>
+          <h3>Sent invitations <span class="muted small">/ Demo outbox</span></h3>
           <ul id="outList" class="outlist"></ul>
         </section>
 

@@ -110,3 +110,49 @@ Original CVs stay on the Vouch server (`data/originals`, read-only). Only visibl
 - The ledger is tamper-*evident*: someone with database access could rebuild the whole chain.
 - SENTINEL's attacks are written by the same team. "Independent" testing would need outside contributors.
 - SQLite and one server process: fine for a demo, not for many users.
+
+## Dashboard
+
+The v2 Command Center is available at `/`; the operational workflow remains at
+`/legacy` during the phased migration. All metrics come from the authenticated,
+case-scoped overview API. The current checkpoint is Phase 1; candidate evidence,
+ranking, approvals and other screen migrations follow visual approval.
+
+The committed `static/app/` build runs with Python alone. To develop the frontend:
+
+```sh
+cd frontend
+npm ci --ignore-scripts
+npm run typecheck
+npm run lint
+npm run build
+```
+
+Use Node 24. `npm run dev` proxies `/api` to port 8000. The production build is the
+CSP verification target. Vite 7.3.7 is pinned because Vite 8's native bundler failed
+memory allocation on the demo laptop. Tests may need `OPENBLAS_NUM_THREADS=1` on
+memory-constrained Windows systems.
+
+## Security decisions
+
+The original CSP is retained: script and style sources remain self only, without
+unsafe-inline or unsafe-eval. The shadcn chart's generated style injector was
+removed; chart colours come from the local stylesheet. Sonner's pinned runtime
+CSS injection call is removed at build time and its official stylesheet is bundled
+as a local asset. The build fails if that known injector format changes. No CSP
+exception was needed in the browser checks performed for this checkpoint.
+
+The new overview performs no writes, rejects unknown/duplicate query parameters,
+uses token identity and existing membership rules, and excludes unrelated ledger
+records. Totals include all permitted records instead of just the first API page.
+An approved-but-edited or expired draft is not counted as currently approved.
+Outbox acceptance is distinct from actual external delivery. SENTINEL's model mode
+is read from its report; synthetic stub results do not prove live-model security.
+
+All new rendering uses text nodes, with a lint gate against raw HTML injection.
+Security-critical modules were not changed. Known architecture limitations and
+proposed follow-ups are in [the architecture review](../docs/architecture-review.md).
+
+Dependency versions are pinned in `frontend/package.json` and `package-lock.json`.
+A minimatch 11.0.1 override addresses the lint tool's glob amplification advisory.
+Direct dependency versions and licences are in [frontend dependencies](../docs/frontend-dependencies.md).

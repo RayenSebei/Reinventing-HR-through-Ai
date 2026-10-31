@@ -22,6 +22,34 @@ function el(tag, attrs = {}, ...kids) {
 const clear = (n) => { while (n.firstChild) n.removeChild(n.firstChild); return n; };
 const short = (h) => (h ? h.slice(0, 10) + "…" : "");
 const isRole = (...r) => S.user && r.includes(S.user.role);
+const PANELS = {
+  criteria: ["STEP 01 / SET THE STANDARD", "Define what matters.", "A shared scorecard keeps every review focused and consistent."],
+  candidates: ["STEP 02 / LOOK AT THE EVIDENCE", "Meet your candidates.", "Review each CV alongside the exact evidence behind its assessment."],
+  shortlist: ["STEP 03 / MAKE A CONSIDERED CHOICE", "Build your shortlist.", "Compare the evidence, open the dossiers, and make the final call."],
+  actions: ["STEP 04 / START THE CONVERSATION", "Turn a shortlist into a conversation.", "Draft an invitation. Your hiring manager approves the exact message before it can be sent."],
+  ledger: ["TRANSPARENCY / EVERY STEP RECORDED", "A clear trail of decisions.", "See who did what and when, with a tamper-evident record for this role."],
+  assurance: ["ASSURANCE / TEST THE GUARDRAILS", "Confidence you can inspect.", "Run the 24 synthetic attack scenarios against an isolated test instance."],
+};
+function emptyState(title, description) {
+  return el("div", { class: "empty-state" }, el("strong", { text: title }), el("p", { text: description }));
+}
+async function refreshOverview() {
+  const id = S.caseId;
+  const [candidates, ranking, outbox] = await Promise.all([
+    api("GET", `/cases/${id}/candidates`), api("GET", `/cases/${id}/ranking`), api("GET", `/cases/${id}/outbox`)
+  ]);
+  if (id !== S.caseId) return;
+  $("candidateCount").textContent = candidates.length;
+  $("criteriaCount").textContent = S.case.criteria.length;
+  $("shortlistOverview").textContent = ranking.status === "CONFIRMED" ? "Confirmed" : ranking.status === "DRAFT" ? "In review" : "Not started";
+  $("sentCount").textContent = outbox.length;
+  const next = $("nextStep");
+  const target = S.tab === "criteria" && S.case.criteria_confirmed ? ["candidates", "Review candidates →"] :
+    S.tab === "candidates" && candidates.length ? ["shortlist", "Build shortlist →"] :
+    S.tab === "shortlist" && ranking.status === "CONFIRMED" ? ["actions", "Draft invitation →"] : null;
+  next.hidden = !target;
+  if (target) { next.dataset.target = target[0]; next.textContent = target[1]; }
+}
 
 const MESSAGES = {
   APPROVAL_PAYLOAD_MISMATCH: "Blocked by the Action Gateway: the action changed after the manager approved it.",
@@ -76,7 +104,7 @@ async function boot() {
   S.users = await api("GET", "/users");
   await loadCases();
   if (S.caseId && S.cases.some((c) => c.id === S.caseId)) await openCase(S.caseId, S.tab);
-  else if (S.cases.length) await openCase(S.cases[0].id, "criteria");
+  else if (S.cases.length) await openCase(S.cases[0].id, S.tab);
 }
 
 function render() {
@@ -84,16 +112,17 @@ function render() {
   $("login").hidden = logged; $("workspace").hidden = !logged; $("who").hidden = !logged;
   if (!logged) return;
   const who = clear($("who"));
-  who.append(el("span", { text: S.user.name }), el("span", { class: "pill", text: S.user.role.replace("_", " ") }));
+  who.append(el("span", { class: "user-avatar", "aria-hidden": "true", text: S.user.name.slice(0, 1) }), el("span", { class: "user-name", text: S.user.name }), el("span", { class: "pill", text: S.user.role.replace(/_/g, " ") }));
   const sw = el("select", { "aria-label": "Switch user", onchange: async (e) => { if (e.target.value) await guard(() => login(e.target.value, "demo1234")); } },
     el("option", { value: "", text: "Switch demo user…" }),
-    ["recruiter@vouch.demo", "manager@vouch.demo", "auditor@vouch.demo", "admin@vouch.demo"].map((m) => el("option", { value: m, text: m })));
+    [["recruiter", "Recruiter"], ["manager", "Hiring manager"], ["auditor", "Auditor"], ["admin", "HR admin"]].map(([m, label]) => el("option", { value: m + "@vouch.demo", text: label })));
   who.append(sw, el("button", { type: "button", onclick: logout, text: "Sign out" }));
   $("newCaseBtn").hidden = !isRole("recruiter");
 }
 
 async function loadCases() {
   S.cases = await api("GET", "/cases");
+  $("caseCount").textContent = S.cases.length;
   const ul = clear($("caseList"));
   for (const c of S.cases) {
     ul.append(el("li", {}, el("button", { type: "button", "aria-current": c.id === S.caseId ? "true" : null,
@@ -103,6 +132,7 @@ async function loadCases() {
 
 async function openCase(id, tab) {
   S.caseId = id; S.case = await api("GET", "/cases/" + id); S.dossier = null;
+  $("dossier").hidden = true;
   $("noCase").hidden = true; $("caseView").hidden = false;
   $("caseTitle").textContent = S.case.title; $("caseDesc").textContent = S.case.description;
   document.querySelectorAll("#caseList button").forEach((b) => b.setAttribute("aria-current", b.textContent === S.case.title ? "true" : "false"));
@@ -111,10 +141,17 @@ async function openCase(id, tab) {
 
 async function showTab(tab) {
   S.tab = tab; banner(null);
-  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false"));
+  document.querySelectorAll(".tabs button").forEach((b) => { b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false"); b.tabIndex = b.dataset.tab === tab ? 0 : -1; });
   document.querySelectorAll("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== tab));
+  const [eyebrow, title, description] = PANELS[tab];
+  $("panelEyebrow").textContent = eyebrow; $("panelTitle").textContent = title; $("panelDescription").textContent = description;
+  if (tab === "actions" && isRole("hiring_manager")) {
+    $("panelTitle").textContent = "Give the next step your approval.";
+    $("panelDescription").textContent = "Review the recipient, interview time, and exact message. Your approval applies only to that content.";
+  }
   await ({ criteria: renderCriteria, candidates: renderCandidates, shortlist: renderShortlist,
            actions: renderActions, ledger: renderLedger, assurance: renderAssurance })[tab]();
+  await refreshOverview();
 }
 
 // ---------- 1. criteria ----------
@@ -122,15 +159,20 @@ function critRow(c = { label: "", kind: "skill", weight: 0 }) {
   const editable = S.case.can_edit;
   const kinds = ["skill", "experience", "education", "project", "certification", "other"];
   const tr = el("tr", {},
-    el("td", {}, el("input", { value: c.label, maxlength: 200, disabled: !editable, "aria-label": "Criterion" })),
-    el("td", {}, el("select", { disabled: !editable, "aria-label": "Type" }, kinds.map((k) => el("option", { value: k, selected: k === c.kind, text: k })))),
+    el("td", {}, el("input", { value: c.label, maxlength: 200, disabled: !editable, "aria-label": "Criterion", oninput: sumWeights })),
+    el("td", {}, el("select", { disabled: !editable, "aria-label": "Type", onchange: sumWeights }, kinds.map((k) => el("option", { value: k, selected: k === c.kind, text: k })))),
     el("td", {}, el("input", { type: "number", min: 0, max: 100, value: c.weight, disabled: !editable, "aria-label": "Weight", oninput: sumWeights })),
     el("td", {}, editable ? el("button", { type: "button", onclick: () => { tr.remove(); sumWeights(); }, text: "Remove" }) : ""));
   return tr;
 }
 function sumWeights() {
   const total = [...$("critBody").querySelectorAll("input[type=number]")].reduce((a, i) => a + (+i.value || 0), 0);
-  const p = $("weightSum"); p.textContent = "Total weight: " + total; p.className = "pill " + (total === 100 ? "ok" : "warn");
+  const p = $("weightSum"); p.textContent = "Total weight: " + total + "%"; p.className = "pill " + (total === 100 ? "ok" : "warn");
+  $("saveCrit").disabled = total !== 100;
+  $("confirmCrit").disabled = total !== 100 || !criteriaMatchSaved();
+}
+function criteriaMatchSaved() {
+  return JSON.stringify(readCriteria()) === JSON.stringify(S.case.criteria.map(({ label, kind, weight }) => ({ label, kind, weight })));
 }
 async function renderCriteria() {
   const body = clear($("critBody"));
@@ -138,7 +180,8 @@ async function renderCriteria() {
   if (!S.case.criteria.length && S.case.can_edit) body.append(critRow());
   sumWeights();
   $("critActions").hidden = !S.case.can_edit;
-  $("critStatus").textContent = S.case.criteria_confirmed ? "Criteria confirmed. You can upload CVs." : "Not confirmed yet.";
+  $("critStatus").textContent = S.case.criteria_confirmed ? "✓ Scorecard confirmed. You’re ready to review candidates." : S.case.can_edit ? "Save your changes, then confirm the scorecard to start reviewing CVs." : "The recruiter needs to confirm this scorecard before candidate review begins.";
+  $("critStatus").className = S.case.criteria_confirmed ? "confirmed" : "muted";
 }
 function readCriteria() {
   return [...$("critBody").querySelectorAll("tr")].map((tr) => {
@@ -152,22 +195,24 @@ async function renderCandidates() {
   $("uploadForm").hidden = !S.case.can_edit;
   S.candidates = await api("GET", `/cases/${S.caseId}/candidates`);
   const body = clear($("candBody"));
-  if (!S.candidates.length) body.append(el("tr", {}, el("td", { colspan: 3, class: "muted", text: "No CVs yet." })));
+  if (!S.candidates.length) body.append(el("tr", {}, el("td", { colspan: 3, class: "empty-cell" }, el("strong", { text: "Your candidate list starts here." }), el("p", { text: "Upload a PDF CV above to see its evidence and any review alerts." }))));
+  $("uploadForm").querySelector("button[type=submit]").disabled = !S.case.criteria_confirmed;
+  if (!S.case.criteria_confirmed) $("uploadStatus").textContent = "Confirm your scorecard in Criteria before uploading.";
   for (const c of S.candidates) {
     const alerts = c.finding_types.filter((t) => t !== "MODEL_FALLBACK");
-    body.append(el("tr", { class: "clickable", tabindex: 0, "aria-selected": S.dossier && S.dossier.candidate_id === c.id ? "true" : "false",
+    body.append(el("tr", { class: "clickable", "data-candidate": c.id, tabindex: 0, "aria-selected": S.dossier && S.dossier.candidate_id === c.id ? "true" : "false",
       onclick: () => guard(() => openDossier(c.id)), onkeydown: (e) => { if (e.key === "Enter") guard(() => openDossier(c.id)); } },
       el("td", {}, el("b", { text: c.pseudonym }), el("div", { class: "muted small", text: c.display_name })),
       el("td", { class: "small", text: c.filename || "" }),
       el("td", {}, alerts.length ? alerts.map((t) => el("span", { class: "chip high", text: t.replace(/_/g, " ").toLowerCase() })) : el("span", { class: "chip SOURCED", text: "no alerts" }))));
   }
-  if (S.dossier) drawDossier();
+  if (S.dossier) await drawDossier();
 }
 
 async function openDossier(id) {
   S.dossier = await api("GET", `/candidates/${id}/dossier`); S.page = 1; S.viewed.add(id);
-  document.querySelectorAll("#candBody tr").forEach((tr) => tr.setAttribute("aria-selected", "false"));
-  drawDossier();
+  document.querySelectorAll("#candBody tr").forEach((tr) => tr.setAttribute("aria-selected", tr.dataset.candidate === id ? "true" : "false"));
+  await drawDossier();
 }
 
 async function drawDossier() {
@@ -215,9 +260,10 @@ async function renderShortlist() {
   st.textContent = S.ranking.status ? `Version ${S.ranking.version} · ${S.ranking.status.toLowerCase()}` : "No ranking yet";
   st.className = "pill " + (S.ranking.status === "CONFIRMED" ? "ok" : S.ranking.status ? "warn" : "");
   const body = clear($("rankBody"));
+  if (!S.ranking.rows.length) body.append(el("tr", {}, el("td", { colspan: 6, class: "empty-cell" }, el("strong", { text: "A thoughtful shortlist starts with evidence." }), el("p", { text: "Add candidate CVs, then rank them against your scorecard." }))));
   for (const r of S.ranking.rows) {
     body.append(el("tr", {},
-      el("td", { text: r.position }), el("td", {}, el("b", { text: r.pseudonym }), S.viewed.has(r.candidate_id) ? el("div", { class: "muted small", text: "dossier opened" }) : null),
+      el("td", { text: r.position }), el("td", {}, el("button", { type: "button", class: "dossier-link", text: r.pseudonym + " ↗", "aria-label": "Review dossier for " + r.pseudonym, onclick: () => guard(async () => { await showTab("candidates"); await openDossier(r.candidate_id); $("dossier").scrollIntoView({ block: "start" }); }) }), S.viewed.has(r.candidate_id) ? el("div", { class: "muted small", text: "Dossier reviewed" }) : null),
       el("td", { class: "mono", text: r.score }),
       el("td", {}, r.breakdown.map((b) => el("div", { class: "small" }, el("span", { class: "chip " + b.status, text: b.status.replace("_", " ") }), `${b.criterion} (${b.weight})`))),
       el("td", {}, r.flags.map((f) => el("span", { class: "chip medium", text: f.replace(/_/g, " ").toLowerCase() }))),
@@ -229,7 +275,7 @@ async function renderShortlist() {
   const btn = $("confirmRank");
   btn.disabled = !(S.ranking.status === "DRAFT") || missing.length > 0;
   $("confirmHint").textContent = S.ranking.status !== "DRAFT" ? "" :
-    missing.length ? `Open the dossier of the top ${top.length} candidates first (${missing.length} left, in tab 2).` : "Ready to confirm.";
+    missing.length ? `Review the top ${top.length} candidate dossiers before confirming (${missing.length} left in Candidates).` : "All top dossiers reviewed. Ready to confirm.";
 }
 
 // ---------- 4. actions ----------
@@ -245,12 +291,13 @@ async function renderActions() {
   }
   const props = await api("GET", `/cases/${S.caseId}/proposals`);
   const list = clear($("propList"));
-  if (!props.length) list.append(el("p", { class: "muted", text: confirmed.length ? "No actions drafted yet." : "Confirm the shortlist first (tab 3)." }));
+  if (!props.length) list.append(emptyState(confirmed.length ? "Your next conversation starts here." : "First, agree on your shortlist.", confirmed.length ? "Choose a candidate above and draft an invitation for your manager to review." : "Review the candidate dossiers and confirm the shortlist. You can then draft invitations here."));
   for (const p of props.slice().reverse()) list.append(propCard(p));
   const out = await api("GET", `/cases/${S.caseId}/outbox`);
   const ol = clear($("outList"));
-  if (!out.length) ol.append(el("li", { class: "muted", text: "Nothing sent yet." }));
+  if (!out.length) ol.append(el("li", { class: "empty-state" }, el("strong", { text: "No invitations sent yet." }), el("p", { text: "Messages appear here after manager approval and a successful send." })));
   for (const o of out) ol.append(el("li", {}, el("b", { text: o.payload.subject }), el("div", { class: "small muted", text: `to ${o.payload.recipient} · ${o.delivery_status} · ${o.created_at}` })));
+  $("sentCount").textContent = out.length;
 }
 
 function propCard(p) {
@@ -326,6 +373,27 @@ async function runAssurance() {
 
 // ---------- wiring ----------
 document.addEventListener("DOMContentLoaded", () => {
+  // Keep wide evidence tables usable on narrow screens without widening the page.
+  document.querySelectorAll("table.grid").forEach((table) => {
+    const wrap = el("div", { class: "table-wrap", tabindex: 0, role: "region", "aria-label": table.closest("[data-panel]").dataset.panel + " table" });
+    table.before(wrap); wrap.append(table);
+  });
+  document.querySelectorAll("[data-panel]").forEach((panel) => {
+    panel.id = "panel-" + panel.dataset.panel; panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", "tab-" + panel.dataset.panel);
+  });
+  ["propCand", "propKind", "propStart"].forEach((id) => {
+    const input = $(id); const label = document.querySelector(`label[for="${id}"]`);
+    const field = el("div", { class: "form-field" }); label.before(field); field.append(label, input);
+  });
+  $("nextStep").addEventListener("click", () => guard(() => showTab($("nextStep").dataset.target)));
+  document.querySelector(".tabs").addEventListener("keydown", (e) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    const tabs = [...document.querySelectorAll(".tabs button")]; const current = tabs.indexOf(document.activeElement);
+    if (current < 0) return; e.preventDefault();
+    const index = e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : (current + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    tabs[index].focus(); guard(() => showTab(tabs[index].dataset.tab));
+  });
   $("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault(); const err = $("loginError"); err.hidden = true;
     try { await login($("email").value, $("password").value); } catch (x) { err.textContent = x.message; err.hidden = false; }
@@ -349,26 +417,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $("addCrit").addEventListener("click", () => { $("critBody").append(critRow()); sumWeights(); });
   $("saveCrit").addEventListener("click", () => guard(async () => {
-    S.case = await api("PUT", `/cases/${S.caseId}/criteria`, { criteria: readCriteria() }); await renderCriteria(); banner("Criteria saved. Confirm them to start.", "ok");
+    S.case = await api("PUT", `/cases/${S.caseId}/criteria`, { criteria: readCriteria() }); await renderCriteria(); await refreshOverview(); banner("Criteria saved. Confirm them to start.", "ok");
   }));
   $("confirmCrit").addEventListener("click", () => guard(async () => {
-    S.case = await api("POST", `/cases/${S.caseId}/criteria/confirm`); await renderCriteria(); banner("Criteria confirmed.", "ok");
+    S.case = await api("POST", `/cases/${S.caseId}/criteria/confirm`); await renderCriteria(); await refreshOverview(); banner("Criteria confirmed.", "ok");
   }));
 
   $("uploadForm").addEventListener("submit", (e) => { e.preventDefault(); guard(async () => {
-    const files = $("cvFiles").files; if (!files.length) throw new Error("Choose at least one PDF.");
-    $("uploadStatus").textContent = `Checking ${files.length} file(s)…`;
-    let last = null;
-    for (const f of files) { const fd = new FormData(); fd.append("file", f); last = await api("POST", `/cases/${S.caseId}/candidates`, fd, true); }
-    $("uploadStatus").textContent = "Done."; $("uploadForm").reset();
-    S.dossier = last; S.viewed.add(last.candidate_id); await renderCandidates();
+    const files = [...$("cvFiles").files]; if (!files.length) throw new Error("Choose at least one PDF.");
+    if (files.some((f) => !f.name.toLowerCase().endsWith(".pdf"))) throw new Error("Please choose PDF files only.");
+    if (files.some((f) => f.size > 5 * 1024 * 1024)) throw new Error("Each PDF must be 5 MB or smaller.");
+    const button = $("uploadForm").querySelector("button[type=submit]"); button.disabled = true;
+    let completed = 0;
+    try {
+      let last = null;
+      for (const f of files) {
+        $("uploadStatus").textContent = `Reviewing ${completed + 1} of ${files.length}: ${f.name}…`;
+        const fd = new FormData(); fd.append("file", f); last = await api("POST", `/cases/${S.caseId}/candidates`, fd, true); completed++;
+      }
+      $("uploadStatus").textContent = `✓ ${completed} CV${completed === 1 ? "" : "s"} reviewed. Select a candidate to explore the evidence.`;
+      $("uploadForm").reset(); S.dossier = last; S.page = 1; S.viewed.add(last.candidate_id);
+    } catch (error) {
+      $("uploadStatus").textContent = `Upload stopped. ${completed} of ${files.length} CVs completed. ${error.message}`;
+      throw error;
+    } finally { button.disabled = false; await renderCandidates(); await refreshOverview(); }
   }); });
   $("prevPage").addEventListener("click", () => guard(async () => { S.page--; await drawPage(); }));
   $("nextPage").addEventListener("click", () => guard(async () => { S.page++; await drawPage(); }));
 
-  $("draftRank").addEventListener("click", () => guard(async () => { await api("POST", `/cases/${S.caseId}/ranking`, {}); await renderShortlist(); }));
+  $("draftRank").addEventListener("click", () => guard(async () => { await api("POST", `/cases/${S.caseId}/ranking`, {}); await renderShortlist(); await refreshOverview(); }));
   $("confirmRank").addEventListener("click", () => guard(async () => {
-    await api("POST", `/cases/${S.caseId}/ranking/${S.ranking.version}/confirm`, {}); await renderShortlist(); banner("Shortlist confirmed by you.", "ok");
+    await api("POST", `/cases/${S.caseId}/ranking/${S.ranking.version}/confirm`, {}); await renderShortlist(); await refreshOverview(); banner("Shortlist confirmed by you.", "ok");
   }));
 
   $("propForm").addEventListener("submit", (e) => { e.preventDefault(); guard(async () => {
@@ -383,5 +462,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }));
   $("runAssurance").addEventListener("click", () => guard(runAssurance));
 
-  loadSession(); guard(boot);
+  loadSession();
+  const destination = new URLSearchParams(window.location.search);
+  if (destination.has("case")) S.caseId = destination.get("case");
+  if (Object.hasOwn(PANELS, destination.get("tab"))) S.tab = destination.get("tab");
+  guard(boot);
 });

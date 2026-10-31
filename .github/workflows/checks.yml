@@ -1,0 +1,22 @@
+name: Vouch checks
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      OPENBLAS_NUM_THREADS: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: vouch/frontend/package-lock.json
+      - run: pip install -r vouch/requirements.txt
+      - run: npm ci --ignore-scripts && npm run typecheck && npm run lint && npm run build
+        working-directory: vouch/frontend
+      - run: python -m pytest -q
+        working-directory: vouch

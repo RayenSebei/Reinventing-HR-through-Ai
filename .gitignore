@@ -1,4 +1,10 @@
 __pycache__/
+.venv/
+node_modules/
+vouch/frontend/.vite/
+.env
+.env.*
+!.env.example
 *.pyc
 .pytest_cache/
 vouch/data/

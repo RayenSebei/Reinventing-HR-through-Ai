@@ -18,7 +18,7 @@ from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import cases, config, db, gateway, ledger, schemas, testmode
+from . import cases, config, dashboard, db, gateway, ledger, schemas, testmode
 from .errors import ApiError, invalid, not_found
 from .security import check_password, current_user, issue_token, require_role
 
@@ -116,6 +116,18 @@ async def meta(request: Request):
 
 
 # --- cases ------------------------------------------------------------------
+@api("GET", "/dashboard/overview")
+async def dashboard_overview(request: Request):
+    user = current_user(request)
+    params = list(request.query_params.multi_items())
+    if any(key != "case_id" for key, _ in params) or len(params) > 1:
+        raise invalid("Only one optional case_id query parameter is allowed.")
+    case_id = request.query_params.get("case_id")
+    if case_id is not None and not case_id.strip():
+        raise invalid("case_id must not be empty.")
+    return ok(dashboard.overview(user, case_id))
+
+
 @api("GET", "/cases")
 async def list_cases(request: Request):
     u = current_user(request)
@@ -401,7 +413,11 @@ async def api_404(request):
 
 
 async def index(request):
-    return FileResponse(STATIC / "index.html")
+    return FileResponse(STATIC / "app" / "index.html", headers={"Cache-Control": "no-cache"})
+
+
+async def legacy_index(request):
+    return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 def build_app() -> Starlette:
@@ -409,6 +425,7 @@ def build_app() -> Starlette:
     all_routes = routes + [
         Route("/api/{rest:path}", api_404, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
         Route("/", index),
+        Route("/legacy", legacy_index),
         Mount("/static", StaticFiles(directory=str(STATIC)), name="static"),
     ]
     return Starlette(routes=all_routes, middleware=[Middleware(SecurityHeaders)],
