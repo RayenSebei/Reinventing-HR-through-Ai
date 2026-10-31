@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vouch</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="seal" aria-hidden="true">V</span><span>Vouch</span><small>evidence · authority · approval</small></div>
+  <div id="who" class="who" hidden></div>
+</header>
+
+<main id="app">
+  <!-- Login -->
+  <section id="login" class="login" hidden>
+    <h1>Sign in</h1>
+    <p class="muted">Synthetic demo data only. Every demo user's password is <code>demo1234</code>.</p>
+    <form id="loginForm" class="stack">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button type="submit" class="primary">Sign in</button>
+      <p id="loginError" class="error" role="alert" hidden></p>
+    </form>
+    <div class="quick">
+      <p class="muted">Quick sign-in</p>
+      <div class="row wrap">
+        <button type="button" data-quick="recruiter@vouch.demo">Recruiter</button>
+        <button type="button" data-quick="manager@vouch.demo">Hiring manager</button>
+        <button type="button" data-quick="auditor@vouch.demo">Auditor</button>
+        <button type="button" data-quick="admin@vouch.demo">HR admin</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Workspace -->
+  <section id="workspace" class="workspace" hidden>
+    <aside class="cases">
+      <div class="row between"><h2>Cases</h2><button id="newCaseBtn" type="button" hidden>New case</button></div>
+      <form id="newCaseForm" class="stack card" hidden>
+        <label for="ncTitle">Job title</label><input id="ncTitle" required maxlength="200">
+        <label for="ncDesc">Description</label><textarea id="ncDesc" rows="3" maxlength="5000"></textarea>
+        <label for="ncManager">Hiring manager (approves actions)</label><select id="ncManager"></select>
+        <div class="row"><button type="submit" class="primary">Create</button><button type="button" id="ncCancel">Cancel</button></div>
+      </form>
+      <ul id="caseList" class="caselist"></ul>
+    </aside>
+
+    <div class="casepane" id="casePane">
+      <div id="noCase" class="empty">Pick a case on the left.</div>
+      <div id="caseView" hidden>
+        <div class="casehead">
+          <h1 id="caseTitle"></h1>
+          <p id="caseDesc" class="muted"></p>
+        </div>
+        <nav class="tabs" role="tablist">
+          <button role="tab" data-tab="criteria">1 · Criteria</button>
+          <button role="tab" data-tab="candidates">2 · CVs &amp; evidence</button>
+          <button role="tab" data-tab="shortlist">3 · Shortlist</button>
+          <button role="tab" data-tab="actions">4 · Actions &amp; approval</button>
+          <button role="tab" data-tab="ledger">Trust Ledger</button>
+          <button role="tab" data-tab="assurance">Assurance</button>
+        </nav>
+
+        <div id="banner" class="banner" role="alert" hidden></div>
+
+        <!-- Criteria -->
+        <section data-panel="criteria" class="panel">
+          <p class="muted">Only job-related criteria. Weights must add up to 100. Confirm them before uploading CVs.</p>
+          <table class="grid"><thead><tr><th>Criterion</th><th>Type</th><th>Weight</th><th></th></tr></thead><tbody id="critBody"></tbody></table>
+          <div class="row" id="critActions">
+            <button type="button" id="addCrit">Add criterion</button>
+            <span id="weightSum" class="pill"></span>
+            <button type="button" id="saveCrit" class="primary">Save criteria</button>
+            <button type="button" id="confirmCrit">Confirm criteria</button>
+          </div>
+          <p id="critStatus" class="muted"></p>
+        </section>
+
+        <!-- Candidates -->
+        <section data-panel="candidates" class="panel" hidden>
+          <form id="uploadForm" class="row wrap card">
+            <label for="cvFiles">Upload CVs (PDF)</label>
+            <input id="cvFiles" type="file" accept="application/pdf" multiple>
+            <button type="submit" class="primary">Upload &amp; check</button>
+            <span id="uploadStatus" class="muted"></span>
+          </form>
+          <div class="split">
+            <table class="grid"><thead><tr><th>Candidate</th><th>File</th><th>Alerts</th></tr></thead><tbody id="candBody"></tbody></table>
+            <div id="dossier" class="dossier card" hidden>
+              <div class="row between"><h2 id="dosTitle"></h2><span id="dosSha" class="mono muted"></span></div>
+              <div class="legend"><span class="sw ev"></span>evidence quote <span class="sw hid"></span>hidden / suspicious text</div>
+              <div class="pageview"><img id="pageImg" alt="CV page"><div id="overlay" class="overlay"></div></div>
+              <div class="row"><button type="button" id="prevPage">Previous page</button><span id="pageNo" class="muted"></span><button type="button" id="nextPage">Next page</button></div>
+              <h3>Evidence</h3><ul id="evList" class="evlist"></ul>
+              <h3>Alerts</h3><ul id="fdList" class="fdlist"></ul>
+              <p class="muted small" id="dosStatement"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Shortlist -->
+        <section data-panel="shortlist" class="panel" hidden>
+          <p class="muted">The ranking is an aid. Nobody is rejected automatically. You decide.</p>
+          <div class="row"><button type="button" id="draftRank" class="primary">Rank candidates on evidence</button><span id="rankState" class="pill"></span></div>
+          <table class="grid"><thead><tr><th>#</th><th>Candidate</th><th>Score</th><th>Criteria</th><th>Flags</th><th>Why</th></tr></thead><tbody id="rankBody"></tbody></table>
+          <div class="row"><button type="button" id="confirmRank">I reviewed the dossiers. Confirm shortlist</button><span id="confirmHint" class="muted"></span></div>
+        </section>
+
+        <!-- Actions -->
+        <section data-panel="actions" class="panel" hidden>
+          <form id="propForm" class="row wrap card">
+            <label for="propCand">Candidate</label><select id="propCand"></select>
+            <label for="propKind">Action</label>
+            <select id="propKind"><option value="interview_invite">Interview invitation</option><option value="follow_up">Follow-up</option></select>
+            <label for="propStart">Interview time (UTC)</label><input id="propStart" type="datetime-local">
+            <button type="submit" class="primary">Draft action</button>
+          </form>
+          <div id="propList" class="proplist"></div>
+          <h3>Sent (sandbox outbox)</h3>
+          <ul id="outList" class="outlist"></ul>
+        </section>
+
+        <!-- Ledger -->
+        <section data-panel="ledger" class="panel" hidden>
+          <div class="row"><button type="button" id="verifyLedger">Check the whole ledger</button><span id="ledgerState" class="pill"></span></div>
+          <table class="grid small"><thead><tr><th>#</th><th>Time (UTC)</th><th>Who</th><th>Event</th><th>Hash</th></tr></thead><tbody id="ledgerBody"></tbody></table>
+        </section>
+
+        <!-- Assurance -->
+        <section data-panel="assurance" class="panel" hidden>
+          <p class="muted">SENTINEL attacks a separate copy of Vouch through its public API, using the 24 scenarios in the repository. Results describe these synthetic tests only.</p>
+          <div class="row"><button type="button" id="runAssurance" class="primary">Run the 24 attacks now</button><span id="assState" class="pill"></span></div>
+          <div id="assSummary" class="summary"></div>
+          <table class="grid small"><thead><tr><th>ID</th><th>Severity</th><th>Result</th><th>Detected</th><th>Attack</th></tr></thead><tbody id="assBody"></tbody></table>
+        </section>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

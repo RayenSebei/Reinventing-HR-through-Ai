@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+vouch/data/
+sentinel_hr/reports/run-*.json
