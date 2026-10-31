@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: You can't cost a 17-hour build when nobody knows if there are two people or four to do it, so the labor budget could be half what's needed, and the pitch asks HR buyers for money with no validated buyer or price and only team-reported or secondary-source numbers behind it.
+DECIDING FACT: Team size is not settled ("about four people" in one document, a "two-person split" in the handover), yet the schedule packs PDF forensics, evidence dossiers, ranking, payload-bound approvals, a gateway, a hash-chained ledger, four-role RBAC, a frontend and SENTINEL integration into 17 hours from an empty workspace, with no slack.
+WOULD FLIP IF: The team fixed its headcount and showed a per-person hour allocation covering the full scope with slack, with SENTINEL integration moved earlier than hours 13 to 14.5.

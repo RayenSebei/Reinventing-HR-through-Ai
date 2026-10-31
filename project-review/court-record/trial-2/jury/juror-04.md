@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: The concept is sound, but every proof the pitch relies on (the live SENTINEL pass/fail, payload-bound approvals, defence against the French and Arabic CVs real users would send) is still a plan written for an empty workspace, and a pitch built on hope dressed up as fact should not go ahead in the form described.
+DECIDING FACT: The record says the scenarios "are specifications, not executable tests": no runner or harness exists, 16 of 24 say they need API-contract confirmation, and Vouch's API did not exist when they were written. Yet the 70-second centrepiece of the demo promises "real pass/fail", with 1.5 hours set aside to integrate it.
+WOULD FLIP IF: The scope were cut to what the record can support, meaning one approval-and-gateway path plus a small SENTINEL set wired to a confirmed API contract with a working runner, and the claims were limited to what those runs actually show.

@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: Every claim that this can be built and demonstrated in 17 hours is a plan, not proof, and the defense itself concedes that no Vouch code exists, no scenario has ever run, and neither the team size nor the model is settled, so the case as described rests on hope rather than on evidence in the record.
+DECIDING FACT: "NO scenario has been executed against a working Vouch API. Vouch's API did not exist when scenarios were written." Yet 70 seconds of the five-minute demo, the pitch's claimed differentiator, depend on showing "real pass/fail" from those scenarios.
+WOULD FLIP IF: The record showed a working Vouch API with the approval gateway in place, against which the five demo SENTINEL scenarios had actually been run and produced real pass/fail results, with team size and model choice fixed.

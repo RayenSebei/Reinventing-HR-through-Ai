@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: I've never opened a shop without knowing how many hands I had on day one, and this plan books seven subsystems, four-role access control, a frontend and a live test run into 17 hours starting from an empty workspace, while it still doesn't know whether two people or four are doing the work or which model it can count on.
+DECIDING FACT: The team size is not settled ("about four people" in one document, a two-person split in the handover), and no Vouch code, API routes or schemas exist yet, so nobody can say who builds the 9–11h approval and gateway block that the main demo moment depends on.
+WOULD FLIP IF: The team committed to at least four named people, each owning a block of the schedule, and cut the plan to what that headcount can deliver (for example, a smaller live SENTINEL set with a runner written up front), so there's slack left for a bad hour.

@@ -1,0 +1,4 @@
+VOTE: NOT GUILTY
+REASON: Recruitment AI usually gets into legal trouble through automated decisions about people, discrimination and personal data, and this plan deliberately avoids each one (fictional data only, no auto-rejection, no protected characteristics, human approval bound to the exact payload); the gaps I do see are where real CVs would go and the unproven word "independent" in the pitch, both of which can be fixed with clearer terms and wording, so they are not reasons to stop.
+DECIDING FACT: The team explicitly lists "auto-rejection, automated hiring decisions, emotion analysis, flight-risk prediction" as things it will NOT build, and the spec's own constraint is "fictional data only, no real personal data."
+WOULD FLIP IF: The final product made sending real candidates' CVs to a hosted external LLM the default, with no stated data-handling basis. The record already flags "privacy of CVs sent to external AI" and leaves the choice of model open.

@@ -1,0 +1,92 @@
+{
+  "verdict": "GUILTY",
+  "guilty": 11,
+  "not_guilty": 1,
+  "no_vote": 0,
+  "jurors": [
+    {
+      "juror": "The Accountant",
+      "vote": "GUILTY",
+      "reason": "The only budget actually on the table is 17 hours and a crew whose size nobody has fixed, and the described plan spends all of it on seven subsystems built from an empty workspace plus a live SENTINEL run with no harness, leaving zero contingency, while the startup pitch to companies has no buyer, no price and no unit cost (the model, and therefore its cost, is still undecided) behind it.",
+      "fact": "The schedule allocates every hour from 0 to 17 with no slack, yet \"no confirmed Vouch code, API routes or schemas are known to exist yet,\" team size is \"about four people\" in one document and \"a two-person split\" in another, and no runner exists for scenarios of which \"16 of 24 explicitly say routes/fields 'require API-contract confirmation'.\"",
+      "flip": "The described scope were cut so the 17-hour schedule, at a confirmed headcount, carried real contingency hours, for example by shrinking the live SENTINEL segment to a runner pre-built for just the 5 demo scenarios."
+    },
+    {
+      "juror": "The First-Time Customer",
+      "vote": "GUILTY",
+      "reason": "As an HR buyer who has never heard of Vouch, I would not switch to it this week: the incumbents I already use ship HR AI agents, nothing of Vouch exists to try, and its security proof covers only English test CVs the team made itself, while my CVs come in French, Arabic and mixed languages.",
+      "fact": "The repo \"contains ONLY a `sentinel/` folder\" with no Vouch application code, and \"No buyer, price or market claim has been validated with customer interviews.\"",
+      "flip": "A working Vouch build ran the live SENTINEL scenarios against its real API and caught hidden instructions in French/Arabic or mixed-language CVs, and at least one HR buyer confirmed they would pay for that pre-model document defence over their incumbent's agent."
+    },
+    {
+      "juror": "The Competitor",
+      "vote": "GUILTY",
+      "reason": "As the incumbent I could ship payload-bound approvals and a hidden-text render check as a feature next quarter, and its \"independent, vendor-neutral\" testing pitch falls apart when the same team builds both the product and the examiner, so I would ignore it today: nothing exists, and the one thing I can't easily copy is unproven against French, Arabic or mixed CVs.",
+      "fact": "The repo contains ONLY a `sentinel/` folder with no Vouch code, no runner, and 16 of 24 scenarios still needing API-contract confirmation, while incumbents (Workday, Rippling, BambooHR, HiBob) already ship HR AI agents and no buyer, price or market claim has been validated.",
+      "flip": "The scope were cut to the one thing I can't copy overnight (pre-model document forensics plus the payload-bound approval and gateway path, shown working end to end on mixed French/Arabic/English fixtures), with the live SENTINEL run reduced to the few scenarios a working harness can actually execute."
+    },
+    {
+      "juror": "The Retired Judge",
+      "vote": "GUILTY",
+      "reason": "The concept is sound, but every proof the pitch relies on (the live SENTINEL pass/fail, payload-bound approvals, defence against the French and Arabic CVs real users would send) is still a plan written for an empty workspace, and a pitch built on hope dressed up as fact should not go ahead in the form described.",
+      "fact": "The record says the scenarios \"are specifications, not executable tests\": no runner or harness exists, 16 of 24 say they need API-contract confirmation, and Vouch's API did not exist when they were written. Yet the 70-second centrepiece of the demo promises \"real pass/fail\", with 1.5 hours set aside to integrate it.",
+      "flip": "The scope were cut to what the record can support, meaning one approval-and-gateway path plus a small SENTINEL set wired to a confirmed API contract with a working runner, and the claims were limited to what those runs actually show."
+    },
+    {
+      "juror": "The Teenager",
+      "vote": "GUILTY",
+      "reason": "The only bit anyone would actually remember is watching live attacks get blocked on stage, and that bit has zero working code behind it, so as described this is a slideshow about a security ledger that probably crashes in the 70 seconds that matter.",
+      "fact": "The scenarios \"are specifications, not executable tests\": no runner or harness exists, 16 of 24 still need API-contract confirmation, and the repo contains ONLY a `sentinel/` folder with no Vouch code at all.",
+      "flip": "The team cut the build down to the CV upload, the approval and the gateway, and had a runner that already executes the 5 demo scenarios against a working Vouch endpoint before the clock starts, so the live attack moment is real instead of hoped for."
+    },
+    {
+      "juror": "The Engineer",
+      "vote": "GUILTY",
+      "reason": "Each piece is ordinary engineering and the payload-hash gateway is small enough to build. But the plan asks a team whose size isn't even settled to build seven subsystems, four-role per-case RBAC, a frontend, and a SENTINEL runner, clock control and test evidence export that don't exist yet, all from an empty workspace in 17 hours, so the first thing to break will be the 70-second live SENTINEL segment the demo is built around.",
+      "fact": "The repo holds only the `sentinel/` folder with no Vouch code, and its 24 scenarios are prose specifications with no runner (16 of 24 still need API-contract confirmation), yet SENTINEL integration gets only the 13\u201314.5h slot, after everything else has to work.",
+      "flip": "The team settles on four people and cuts the build to ingestion plus the rendering check, the evidence dossier, the rubric, and the approval and gateway path, with the API contract frozen in hour one and an executable runner for just the 5 demo scenarios written alongside the backend rather than at hour 13."
+    },
+    {
+      "juror": "The Small-Business Owner",
+      "vote": "GUILTY",
+      "reason": "I've never opened a shop without knowing how many hands I had on day one, and this plan books seven subsystems, four-role access control, a frontend and a live test run into 17 hours starting from an empty workspace, while it still doesn't know whether two people or four are doing the work or which model it can count on.",
+      "fact": "The team size is not settled (\"about four people\" in one document, a two-person split in the handover), and no Vouch code, API routes or schemas exist yet, so nobody can say who builds the 9\u201311h approval and gateway block that the main demo moment depends on.",
+      "flip": "The team committed to at least four named people, each owning a block of the schedule, and cut the plan to what that headcount can deliver (for example, a smaller live SENTINEL set with a runner written up front), so there's slack left for a bad hour."
+    },
+    {
+      "juror": "The Statistician",
+      "vote": "GUILTY",
+      "reason": "Every piece of evidence offered for this plan comes from tiny samples the team built itself (9 one-page English Helvetica fixtures, 22 attacks on a non-HR corpus, all self-reported), while the plan as described needs about seven subsystems, RBAC, a frontend and a live SENTINEL harness to be built from an empty workspace and all work in sequence within 17 hours, so the odds of the whole chain working shrink with every link and nothing in the record measures any of them.",
+      "fact": "No Vouch code exists (the repo \"contains ONLY a `sentinel/` folder\") and \"NO scenario has been executed against a working Vouch API\"; the only measured result in the record is a hidden-text check run on 9 synthetic files.",
+      "flip": "The described scope were cut so the 5-minute demo depended only on CV ingestion, the payload-bound approval and gateway, and the 5 SENTINEL scenarios, and those 5 scenarios were shown passing end to end against a running Vouch API before the event began."
+    },
+    {
+      "juror": "The Parent",
+      "vote": "GUILTY",
+      "reason": "I like that it protects the people on the other end, with no automatic rejection and a human approving every action, but as described it asks a team that still has not decided whether it is two people or four to build every safeguard from an empty workspace in 17 hours, and then stake 70 seconds of the demo on live tests that cannot run yet, so the promise of trust is bigger than what they can deliver.",
+      "fact": "The repo contains only a `sentinel/` folder with no Vouch code, the scenarios \"are specifications, not executable tests\" with no runner, and 16 of 24 still \"require API-contract confirmation\", yet the demo promises to \"show real pass/fail\" live.",
+      "flip": "The team confirmed its headcount and cut the plan down to the approval-plus-gateway path with a small set of SENTINEL scenarios that already have a working runner before the event, so the safety story they pitch is one they can actually show working."
+    },
+    {
+      "juror": "The Investor",
+      "vote": "GUILTY",
+      "reason": "The idea is a real gap worth backing, but as described I would be paying for a seven-subsystem build plus a live test harness that has no code yet, in 17 hours, with team size and model still open and no buyer validated, so the chance of a broken demo is higher than the payoff justifies.",
+      "fact": "The repo contains \"ONLY a `sentinel/` folder\" with no Vouch backend, frontend, API or tests, and \"No runner or harness code for these scenarios exists,\" yet the demo's biggest segment (70s) depends on running them live against that API.",
+      "flip": "The scope were cut to a committed core (case, CV upload with the rendering-based hidden-text check, payload-bound approval and gateway) with a fixed team size and model, and a runnable harness for the 5 demo scenarios written against that API, so the evidence dossier, full ranking and four-role RBAC become stretch goals rather than requirements."
+    },
+    {
+      "juror": "The Designer",
+      "vote": "GUILTY",
+      "reason": "A stranger watching this five-minute demo has to absorb two brands (Vouch and SENTINEL), a jargon-heavy positioning line and six segments covering seven subsystems, and the longest segment depends on tests that cannot run yet, so the one clear story (a poisoned CV gets caught, then a tampered approval gets refused) is buried under machinery.",
+      "fact": "The demo plan gives its largest block, 70 seconds, to running 5 SENTINEL scenarios live and showing \"real pass/fail\", but the record says the scenarios \"are specifications, not executable tests\", no runner exists, and 16 of 24 still \"require API-contract confirmation\" against a Vouch API that does not exist yet.",
+      "flip": "The pitch were cut to one product name and one story, adversarial CV caught, then evidence-backed shortlist, then modified payload rejected by the gateway, with SENTINEL moved out of the live demo and shown as backing evidence in the README."
+    },
+    {
+      "juror": "The Lawyer",
+      "vote": "NOT GUILTY",
+      "reason": "Hiring is a high-liability place to put AI, but this design already holds the lines a lawyer would demand (human decides, no auto-rejection, no protected characteristics, a reason for every ranking, payload-bound approval, an audit trail), and its real gap, a missing privacy and retention position covering where CVs go, how long they are kept and how a hash-chained ledger handles deletion, is a decision the team can state, not a reason to stop.",
+      "fact": "The plan specifies \"no automatic rejection\" and \"no protected characteristics,\" and it enforces \"nothing is sent or recorded without human approval\" with an approval bound to the SHA-256 of the exact payload, so the product never makes the hiring decision on its own.",
+      "flip": "The team pitched it to HR departments as sending candidates' CVs to a hosted external LLM (the model choice is still open) with no stated answer on consent, data location, retention and deletion, or presented the ranked shortlist as the decision rather than as input to a human."
+    }
+  ]
+}

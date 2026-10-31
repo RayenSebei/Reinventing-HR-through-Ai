@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: A stranger could follow the tagline and the "payload is modified, gateway rejects" moment in five seconds, but as described the pitch asks them to learn two products (Vouch and SENTINEL) and a jargon-stacked positioning line in five minutes, and the screens they would judge get only two hours, built after everything else.
+DECIDING FACT: The demo gives its longest slot (70s) to SENTINEL running scenarios that have never run against Vouch, while the frontend is booked for hours 11–13 only, so the clearest story is squeezed and the most abstract one leads.
+WOULD FLIP IF: The pitch were cut down to one product with one sentence of plain positioning, built around the tampered-approval rejection, with SENTINEL shown only briefly as Vouch's own test suite and with frontend time scheduled earlier than hour 11.

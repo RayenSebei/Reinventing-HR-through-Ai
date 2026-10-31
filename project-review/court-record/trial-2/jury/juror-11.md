@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: A stranger watching this five-minute demo has to absorb two brands (Vouch and SENTINEL), a jargon-heavy positioning line and six segments covering seven subsystems, and the longest segment depends on tests that cannot run yet, so the one clear story (a poisoned CV gets caught, then a tampered approval gets refused) is buried under machinery.
+DECIDING FACT: The demo plan gives its largest block, 70 seconds, to running 5 SENTINEL scenarios live and showing "real pass/fail", but the record says the scenarios "are specifications, not executable tests", no runner exists, and 16 of 24 still "require API-contract confirmation" against a Vouch API that does not exist yet.
+WOULD FLIP IF: The pitch were cut to one product name and one story, adversarial CV caught, then evidence-backed shortlist, then modified payload rejected by the gateway, with SENTINEL moved out of the live demo and shown as backing evidence in the README.

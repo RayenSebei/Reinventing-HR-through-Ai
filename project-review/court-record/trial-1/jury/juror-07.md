@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: I've never opened a shop without knowing who's behind the counter on Monday, and this plan fills every one of 17 hours with no slack and still doesn't know whether two people or four are doing the work, so as written it's a gamble, even if the idea underneath is sound.
+DECIDING FACT: The record says "Team size not settled: one document says about four people, the handover offers a two-person split," while the schedule starts from an empty workspace and puts the two moments the pitch sells, approvals/gateway (9–11h) and SENTINEL integration (13–14.5h), last, with no fallback described.
+WOULD FLIP IF: The team commits to a named headcount and cuts the build to what that headcount can deliver, with the gateway-rejection beat and a few SENTINEL scenarios running against a real Vouch API by the middle of the schedule, and a demo fallback written down in case the live run fails.
