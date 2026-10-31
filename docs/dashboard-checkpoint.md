@@ -23,3 +23,18 @@ Remaining: full replacement of candidate/ranking, approval, ledger and assurance
 screens; presenter mode; complete browser walkthrough on those new screens. The
 Phase 1 visual approval checkpoint precedes that work. The existing backend and
 classic screens remain usable. See architecture-review.md for deferred backend fixes.
+
+## Phase 2 — approved direction implemented
+
+New case/scorecard editor, paginated candidate table with search/filter/sort,
+source overlays, honest X-ray extraction view, ranking breakdown, comparison
+drawer and top-dossier review gate. Role switches clear the review gate.
+Criteria editing is disabled after CV analysis to avoid the existing foreign-key
+failure while preserving evidence. No security backend modules changed.
+
+Validation: 29 Python tests; TypeScript, lint and production build passed.
+Browser inspected real clean and adversarial dossiers, X-ray, source overlays,
+keyboard dismissal and generated ranking; no console or CSP errors.
+Screenshots: docs/screenshots/phase2-*.jpg.
+Windows required GOMAXPROCS=2 and GOMEMLIMIT=256MiB for the bundler.
+Approvals, ledger, assurance and the complete walkthrough follow in Phases 3–4.
