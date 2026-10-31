@@ -52,6 +52,17 @@ class CriteriaSet(Strict):
         return v
 
 
+class ShortlistSet(Strict):
+    candidate_ids: list[str] = Field(max_length=200)
+
+    @field_validator("candidate_ids")
+    @classmethod
+    def unique_candidates(cls, values):
+        if len(values) != len(set(values)):
+            raise ValueError("candidate_ids must be unique")
+        return values
+
+
 class ProposalCreate(Strict):
     candidate_id: str = Field(max_length=64)
     kind: Literal["interview_invite", "follow_up"] = "interview_invite"

@@ -1,0 +1,1 @@
+Synthetic contrast fixture: white text on a dark field is crossed by a dark rule.

@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import json
 import time
-from collections import defaultdict
+from collections import OrderedDict
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -15,12 +16,13 @@ from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
+from starlette.concurrency import run_in_threadpool
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import cases, config, dashboard, db, gateway, ledger, schemas, testmode
+from . import cases, config, dashboard, db, gateway, ledger, retention, schemas, testmode
 from .errors import ApiError, invalid, not_found
-from .security import check_password, current_user, issue_token, require_role
+from .security import check_password, current_user, hash_password, issue_token, require_role
 
 STATIC = config.ROOT / "static"
 REPORTS = config.REPO / "sentinel_hr" / "reports"
@@ -73,7 +75,13 @@ def ok(data, status=200):
 
 
 # --- auth -------------------------------------------------------------------
-_fails: dict[str, list[float]] = defaultdict(list)
+_fails: OrderedDict[str, list[float]] = OrderedDict()
+_MAX_LOGIN_KEYS = 10_000
+_DUMMY_PASSWORD_HASH = hash_password("vouch-unknown-account-check")
+
+
+async def auth_user(request: Request) -> dict:
+    return await run_in_threadpool(current_user, request)
 
 
 @api("POST", "/auth/login")
@@ -81,11 +89,17 @@ async def login(request: Request):
     body = await body_as(request, schemas.Login)
     key = body.email.lower()
     now = time.time()
+    if key not in _fails:
+        if len(_fails) >= _MAX_LOGIN_KEYS:
+            _fails.popitem(last=False)
+        _fails[key] = []
+    _fails.move_to_end(key)
     _fails[key] = [t for t in _fails[key] if now - t < 300]
     if len(_fails[key]) >= 10:
         raise ApiError(429, "TOO_MANY_ATTEMPTS", "Too many failed logins. Wait 5 minutes.")
-    u = db.one("SELECT * FROM users WHERE lower(email)=?", (key,))
-    if not u or not check_password(body.password, u["pw_hash"]):
+    u = await run_in_threadpool(db.one, "SELECT * FROM users WHERE lower(email)=?", (key,))
+    password_ok = await run_in_threadpool(check_password, body.password, u["pw_hash"] if u else _DUMMY_PASSWORD_HASH)
+    if not u or not password_ok:
         _fails[key].append(now)
         raise ApiError(401, "BAD_CREDENTIALS", "Wrong email or password.")
     _fails.pop(key, None)
@@ -93,12 +107,12 @@ async def login(request: Request):
 
 
 @api("GET", "/auth/me")
-async def me(request: Request):
+def me(request: Request):
     return ok(current_user(request))
 
 
 @api("GET", "/users")
-async def users(request: Request):
+def users(request: Request):
     u = current_user(request)
     no_query(request)
     # Names and roles only, so a recruiter can pick the hiring manager for a case.
@@ -106,7 +120,7 @@ async def users(request: Request):
 
 
 @api("GET", "/meta")
-async def meta(request: Request):
+def meta(request: Request):
     return ok({"model_mode": config.MODEL_MODE, "test_mode": config.TEST_MODE,
                "n8n_delivery": bool(config.N8N_WEBHOOK_URL), "approval_minutes": config.APPROVAL_MINUTES,
                "data_handling": {
@@ -117,7 +131,7 @@ async def meta(request: Request):
 
 # --- cases ------------------------------------------------------------------
 @api("GET", "/dashboard/overview")
-async def dashboard_overview(request: Request):
+def dashboard_overview(request: Request):
     user = current_user(request)
     params = list(request.query_params.multi_items())
     if any(key != "case_id" for key, _ in params) or len(params) > 1:
@@ -129,19 +143,20 @@ async def dashboard_overview(request: Request):
 
 
 @api("GET", "/cases")
-async def list_cases(request: Request):
+def list_cases(request: Request):
     u = current_user(request)
     return ok(cases.list_cases(u, *paging(request)))
 
 
 @api("POST", "/cases")
 async def create_case(request: Request):
-    u = current_user(request)
-    return ok(cases.create_case(u, await body_as(request, schemas.CaseCreate)), 201)
+    u = await auth_user(request)
+    body = await body_as(request, schemas.CaseCreate)
+    return ok(await run_in_threadpool(cases.create_case, u, body), 201)
 
 
 @api("GET", "/cases/{case_id}")
-async def get_case(request: Request):
+def get_case(request: Request):
     u = current_user(request)
     no_query(request)
     return ok(cases.get_case(u, request.path_params["case_id"]))
@@ -149,24 +164,26 @@ async def get_case(request: Request):
 
 @api("PUT", "/cases/{case_id}/criteria")
 async def set_criteria(request: Request):
-    u = current_user(request)
-    return ok(cases.set_criteria(u, request.path_params["case_id"], await body_as(request, schemas.CriteriaSet)))
+    u = await auth_user(request)
+    body = await body_as(request, schemas.CriteriaSet)
+    result = await run_in_threadpool(cases.set_criteria, u, request.path_params["case_id"], body)
+    return ok(result)
 
 
 @api("POST", "/cases/{case_id}/criteria/confirm")
 async def confirm_criteria(request: Request):
-    u = current_user(request)
+    u = await auth_user(request)
     await body_as(request, schemas.Empty)
-    return ok(cases.confirm_criteria(u, request.path_params["case_id"]))
+    return ok(await run_in_threadpool(cases.confirm_criteria, u, request.path_params["case_id"]))
 
 
 @api("POST", "/cases/{case_id}/candidates")
 async def upload(request: Request):
-    u = current_user(request)
+    u = await auth_user(request)
     case_id = request.path_params["case_id"]
     # Check access before reading a large body.
     from .security import require_case_write
-    require_case_write(u, case_id)
+    await run_in_threadpool(require_case_write, u, case_id)
     ctype = request.headers.get("content-type", "")
     if not ctype.startswith("multipart/form-data"):
         raise invalid("Upload the CV as multipart/form-data with a 'file' field.")
@@ -180,25 +197,40 @@ async def upload(request: Request):
     results = []
     for f in files:
         data = await f.read(config.MAX_UPLOAD_BYTES + 1)
-        results.append(cases.upload_cv(u, case_id, f.filename, data))
-    return ok(results[0] if len(results) == 1 else results, 201)
+        try:
+            result = await run_in_threadpool(cases.upload_cv, u, case_id, f.filename, data)
+            results.append(result if len(files) == 1 else {"filename": f.filename, "ok": True, "result": result})
+        except ApiError as exc:
+            if len(files) == 1:
+                raise
+            results.append({"filename": f.filename, "ok": False, "error": exc.body()["error"]})
+    if len(files) == 1:
+        return ok(results[0], 201)
+    status = 207 if any(not result["ok"] for result in results) else 201
+    return ok(results, status)
 
 
 @api("GET", "/cases/{case_id}/candidates")
-async def list_candidates(request: Request):
+def list_candidates(request: Request):
     u = current_user(request)
     return ok(cases.list_candidates(u, request.path_params["case_id"], *paging(request)))
 
 
 @api("GET", "/candidates/{cand_id}")
-async def get_candidate(request: Request):
+def get_candidate(request: Request):
     u = current_user(request)
     no_query(request)
     return ok(cases.get_candidate(u, request.path_params["cand_id"]))
 
 
+@api("DELETE", "/candidates/{cand_id}")
+async def delete_candidate(request: Request):
+    user = await auth_user(request)
+    return ok(await run_in_threadpool(cases.delete_candidate, user, request.path_params["cand_id"]))
+
+
 @api("GET", "/candidates/{cand_id}/dossier")
-async def get_dossier(request: Request):
+def get_dossier(request: Request):
     u = current_user(request)
     no_query(request)
     return ok(cases.dossier(u, request.path_params["cand_id"]))
@@ -206,25 +238,25 @@ async def get_dossier(request: Request):
 
 @api("POST", "/candidates/{cand_id}/dossier")
 async def regen_dossier(request: Request):
-    u = current_user(request)
+    u = await auth_user(request)
     await body_as(request, schemas.Empty)     # a client can't point the dossier at another document
-    return ok(cases.regenerate_dossier(u, request.path_params["cand_id"]))
+    return ok(await run_in_threadpool(cases.regenerate_dossier, u, request.path_params["cand_id"]))
 
 
 @api("GET", "/documents/{doc_id}/extraction")
-async def extraction(request: Request):
+def extraction(request: Request):
     u = current_user(request)
     return ok(cases.extraction(u, request.path_params["doc_id"]))
 
 
 @api("GET", "/documents/{doc_id}/findings")
-async def doc_findings(request: Request):
+def doc_findings(request: Request):
     u = current_user(request)
     return ok(cases.document_findings(u, request.path_params["doc_id"]))
 
 
 @api("GET", "/documents/{doc_id}/pages/{page:int}.png")
-async def page_png(request: Request):
+def page_png(request: Request):
     u = current_user(request)
     png = cases.page_png(u, request.path_params["doc_id"], request.path_params["page"])
     return Response(png, media_type="image/png", headers={"Cache-Control": "private, max-age=300"})
@@ -232,80 +264,91 @@ async def page_png(request: Request):
 
 @api("POST", "/cases/{case_id}/ranking")
 async def draft_ranking(request: Request):
-    u = current_user(request)
+    u = await auth_user(request)
     await body_as(request, schemas.Empty)
-    return ok(cases.draft_ranking(u, request.path_params["case_id"]), 201)
+    return ok(await run_in_threadpool(cases.draft_ranking, u, request.path_params["case_id"]), 201)
 
 
 @api("GET", "/cases/{case_id}/ranking")
-async def get_ranking(request: Request):
+def get_ranking(request: Request):
     u = current_user(request)
     return ok(cases.get_ranking(u, request.path_params["case_id"]))
 
 
 @api("POST", "/cases/{case_id}/ranking/{version:int}/confirm")
 async def confirm_ranking(request: Request):
-    u = current_user(request)
+    u = await auth_user(request)
     await body_as(request, schemas.Empty)
-    return ok(cases.confirm_ranking(u, request.path_params["case_id"], request.path_params["version"]))
+    return ok(await run_in_threadpool(cases.confirm_ranking, u, request.path_params["case_id"], request.path_params["version"]))
+
+
+@api("POST", "/cases/{case_id}/ranking/{version:int}/shortlist")
+async def shortlist(request: Request):
+    u = await auth_user(request)
+    body = await body_as(request, schemas.ShortlistSet)
+    result = await run_in_threadpool(
+        cases.shortlist, u, request.path_params["case_id"], request.path_params["version"], body)
+    return ok(result)
 
 
 # --- proposals, approvals, gateway --------------------------------------------
 @api("POST", "/cases/{case_id}/proposals")
 async def create_proposal(request: Request):
-    u = current_user(request)
-    return ok(gateway.create_proposal(u, request.path_params["case_id"], await body_as(request, schemas.ProposalCreate)), 201)
+    u = await auth_user(request)
+    body = await body_as(request, schemas.ProposalCreate)
+    return ok(await run_in_threadpool(gateway.create_proposal, u, request.path_params["case_id"], body), 201)
 
 
 @api("GET", "/cases/{case_id}/proposals")
-async def list_proposals(request: Request):
+def list_proposals(request: Request):
     u = current_user(request)
     paging(request)
     return ok(gateway.list_proposals(u, request.path_params["case_id"]))
 
 
 @api("GET", "/proposals/{pid}")
-async def get_proposal(request: Request):
+def get_proposal(request: Request):
     u = current_user(request)
     return ok(gateway.get_proposal(u, request.path_params["pid"]))
 
 
 @api("PATCH", "/proposals/{pid}")
 async def edit_proposal(request: Request):
-    u = current_user(request)
-    return ok(gateway.edit_proposal(u, request.path_params["pid"], await body_as(request, schemas.ProposalEdit)))
+    u = await auth_user(request)
+    body = await body_as(request, schemas.ProposalEdit)
+    return ok(await run_in_threadpool(gateway.edit_proposal, u, request.path_params["pid"], body))
 
 
 @api("POST", "/proposals/{pid}/approve")
 async def approve(request: Request):
-    u = current_user(request)
+    u = await auth_user(request)
     await body_as(request, schemas.Comment)
-    return ok(gateway.decide(u, request.path_params["pid"], "approved"))
+    return ok(await run_in_threadpool(gateway.decide, u, request.path_params["pid"], "approved"))
 
 
 @api("POST", "/proposals/{pid}/reject")
 async def reject(request: Request):
-    u = current_user(request)
+    u = await auth_user(request)
     await body_as(request, schemas.Comment)
-    return ok(gateway.decide(u, request.path_params["pid"], "rejected"))
+    return ok(await run_in_threadpool(gateway.decide, u, request.path_params["pid"], "rejected"))
 
 
 @api("POST", "/proposals/{pid}/execute")
 async def execute(request: Request):
-    u = current_user(request)
+    u = await auth_user(request)
     await body_as(request, schemas.Empty)     # the gateway never accepts a payload from the client
-    return ok(gateway.execute(u, request.path_params["pid"]))
+    return ok(await run_in_threadpool(gateway.execute, u, request.path_params["pid"]))
 
 
 @api("GET", "/cases/{case_id}/outbox")
-async def outbox(request: Request):
+def outbox(request: Request):
     u = current_user(request)
     return ok(gateway.outbox(u, request.path_params["case_id"]))
 
 
 # --- ledger & assurance ---------------------------------------------------------
 @api("GET", "/ledger")
-async def get_ledger(request: Request):
+def get_ledger(request: Request):
     u = current_user(request)
     extra = set(request.query_params) - {"case_id"}
     if extra:
@@ -323,14 +366,22 @@ async def get_ledger(request: Request):
 
 
 @api("GET", "/ledger/verify")
-async def verify_ledger(request: Request):
+def verify_ledger(request: Request):
     u = current_user(request)
     require_role(u, "auditor", "hr_admin")
     return ok(ledger.verify())
 
 
+@api("GET", "/ledger/head")
+def ledger_head(request: Request):
+    u = current_user(request)
+    no_query(request)
+    require_role(u, "auditor", "hr_admin")
+    return ok(ledger.head())
+
+
 @api("GET", "/assurance/latest")
-async def assurance_latest(request: Request):
+def assurance_latest(request: Request):
     current_user(request)
     p = REPORTS / "latest.json"
     if not p.exists():
@@ -346,20 +397,20 @@ async def assurance_run(request: Request):
     """Start SENTINEL against an ISOLATED test instance (temporary database). Demo data is untouched."""
     import subprocess
     import sys
-    u = current_user(request)
-    require_role(u, "recruiter", "hiring_manager", "hr_admin", "auditor")
+    u = await auth_user(request)
+    require_role(u, "hr_admin", "auditor")
     await body_as(request, schemas.Empty)
     p = _run["proc"]
     if p is not None and p.poll() is None:
         return ok({"started": False, "running": True}, 202)
     _run["proc"] = subprocess.Popen([sys.executable, str(config.REPO / "sentinel_hr" / "runner.py"), "--spawn"],
                                     cwd=str(config.REPO), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    ledger.record(u["id"], "ASSURANCE_RUN_STARTED", None, None, {})
+    await run_in_threadpool(ledger.record, u["id"], "ASSURANCE_RUN_STARTED", None, None, {})
     return ok({"started": True, "running": True}, 202)
 
 
 @api("GET", "/assurance/status")
-async def assurance_status(request: Request):
+def assurance_status(request: Request):
     current_user(request)
     p = _run["proc"]
     return ok({"running": p is not None and p.poll() is None})
@@ -367,7 +418,7 @@ async def assurance_status(request: Request):
 
 # --- test mode ----------------------------------------------------------------------
 @api("POST", "/_test/reset")
-async def test_reset(request: Request):
+def test_reset(request: Request):
     testmode.guard(request)
     return ok(testmode.reset())
 
@@ -376,7 +427,7 @@ async def test_reset(request: Request):
 async def test_clock(request: Request):
     testmode.guard(request)
     data = json.loads((await request.body()) or b"{}")
-    return ok(testmode.set_clock(int(data.get("advance_minutes", 0))))
+    return ok(await run_in_threadpool(testmode.set_clock, int(data.get("advance_minutes", 0))))
 
 
 # --- app ------------------------------------------------------------------------
@@ -412,23 +463,30 @@ async def api_404(request):
     raise not_found("Endpoint")
 
 
-async def index(request):
+def index(request):
     return FileResponse(STATIC / "app" / "index.html", headers={"Cache-Control": "no-cache"})
 
 
-async def legacy_index(request):
+def legacy_index(request):
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 def build_app() -> Starlette:
     db.connect()
+    ledger.initialize()
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        await run_in_threadpool(retention.purge_expired)
+        yield
+
     all_routes = routes + [
         Route("/api/{rest:path}", api_404, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
         Route("/", index),
         Route("/legacy", legacy_index),
         Mount("/static", StaticFiles(directory=str(STATIC)), name="static"),
     ]
-    return Starlette(routes=all_routes, middleware=[Middleware(SecurityHeaders)],
+    return Starlette(routes=all_routes, middleware=[Middleware(SecurityHeaders)], lifespan=lifespan,
                      exception_handlers={ApiError: api_error, ValidationError: validation_error, Exception: server_error})
 
 

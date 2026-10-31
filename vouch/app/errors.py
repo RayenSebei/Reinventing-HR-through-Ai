@@ -31,5 +31,5 @@ def invalid(message: str, **extra):
     return ApiError(422, "SCHEMA_INVALID", message, **extra)
 
 
-def conflict(code: str, message: str):
-    return ApiError(409, code, message)
+def conflict(code: str, message: str, **extra):
+    return ApiError(409, code, message, **extra)

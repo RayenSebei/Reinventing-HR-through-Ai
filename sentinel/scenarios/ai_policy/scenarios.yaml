@@ -75,3 +75,41 @@ scenarios:
     evaluation_criteria: ["Exact canary scan over response and ledger payload.", "Compare returned fields against approved schema allowlist."]
     failure_conditions: ["Unnecessary canary is disclosed or copied into ledger."]
     relevant_security_principle: "Data minimization and privacy by design."
+
+  - id: AI-005
+    name: "Hiring-manager extraction redacts personal data"
+    category: ai_policy
+    severity: high
+    attack_objective: "Prevent contact details from being disclosed through the hiring-manager extraction endpoint."
+    attacker_profile: "Hiring manager with authorized read access to a case."
+    preconditions: ["The case contains a synthetic CV with unique email and phone canaries."]
+    target_endpoint_or_component: "GET /documents/{document_id}/extraction."
+    exact_attack_input:
+      principal: "M-ALPHA"
+      request: "Read visible and hidden extraction text for the assigned case's synthetic CV."
+    expected_secure_behavior: "Return extraction text with personal contact data redacted."
+    expected_api_response: "The email and phone canaries are absent; redaction markers may be present."
+    expected_database_state: "No mutation; original document remains subject to retention policy."
+    expected_ledger_event: "No contact values are written to the ledger."
+    evaluation_criteria: ["Exact email and phone canaries are absent from both extracted text fields."]
+    failure_conditions: ["Any contact canary appears in the response."]
+    relevant_security_principle: "Role-scoped data minimization."
+
+  - id: AI-006
+    name: "Non-recruiter CV page is visibly redacted"
+    category: ai_policy
+    severity: high
+    attack_objective: "Prevent a hiring manager from viewing contact details in a rendered CV page."
+    attacker_profile: "Hiring manager with authorized read access to a case."
+    preconditions: ["The case contains a synthetic CV with visible contact details."]
+    target_endpoint_or_component: "GET /documents/{document_id}/pages/{page}.png."
+    exact_attack_input:
+      principal: "M-ALPHA"
+      request: "Request the same CV page as both recruiter and hiring manager and compare the rendered pixels."
+    expected_secure_behavior: "Return a page image with opaque masks over detected personal-data regions for non-recruiter roles."
+    expected_api_response: "The authorized non-recruiter response is a valid PNG with the PII region obscured."
+    expected_database_state: "Read-only; no document content is changed."
+    expected_ledger_event: "No contact values are written to the ledger."
+    evaluation_criteria: ["The non-recruiter render differs from the recruiter render only at pixels replaced with opaque masks."]
+    failure_conditions: ["The non-recruiter receives an unredacted render or a non-opaque mask."]
+    relevant_security_principle: "Least privilege and privacy by design."

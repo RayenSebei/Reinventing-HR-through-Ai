@@ -13,6 +13,7 @@ lexicon and records why.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import requests
@@ -52,11 +53,12 @@ class ModelResult:
 def _user_prompt(criteria: list[dict], pages: list[tuple[int, str]]) -> str:
     crit = "\n".join(f'- id={c["id"]}: {c["label"]}' for c in criteria)
     doc = "\n\n".join(f"[page {n}]\n{t}" for n, t in pages)
+    doc = re.sub(r"</\s*cv_text\s*>", "[CV_TEXT_END]", doc, flags=re.IGNORECASE)
     return f"Job criteria:\n{crit}\n\n<cv_text>\n{doc}\n</cv_text>"
 
 
 def _parse(raw: str) -> Claims:
-    raw = raw.strip()
+    raw = re.sub(r"<think\b[^>]*>.*?</think\s*>", "", raw, flags=re.IGNORECASE | re.DOTALL).strip()
     if raw.startswith("```"):
         raw = raw.strip("`")
         raw = raw[raw.find("{"):]
@@ -110,7 +112,7 @@ def extract(criteria: list[dict], pages: list[tuple[int, str]], doc_sha: str) ->
         elif mode == "ollama":
             r = requests.post(
                 config.OLLAMA_URL.rstrip("/") + "/api/chat",
-                json={"model": config.OLLAMA_MODEL, "stream": False, "format": "json",
+                json={"model": config.OLLAMA_MODEL, "stream": False, "format": "json", "think": False,
                       "options": {"temperature": 0},
                       "messages": [{"role": "system", "content": SYSTEM_PROMPT},
                                    {"role": "user", "content": _user_prompt(criteria, pages)}]},

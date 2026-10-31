@@ -1,4 +1,4 @@
-"""Executable steps for the 24 scenarios in sentinel/scenarios/ (the library itself is unchanged).
+"""Executable steps for the 27 scenarios in sentinel/scenarios/.
 
 Every step goes through Vouch's public HTTP API with synthetic identities from
 sentinel/datasets/documentation/fixture_contract.yaml. The only test-mode hooks used are
@@ -8,11 +8,13 @@ State and ledger checks use the read-only auditor identity A-AUDIT through publi
 from __future__ import annotations
 
 import json
+import io
 import re
 import unicodedata
 from pathlib import Path
 
 import requests
+from PIL import Image
 
 REPO = Path(__file__).resolve().parent.parent
 DS = REPO / "sentinel" / "datasets"
@@ -83,7 +85,9 @@ class Ctx:
 
     def shortlist(self, case_id: str, who="R-ALPHA") -> dict:
         rk = self.ok(who, "POST", f"/cases/{case_id}/ranking")
-        return self.ok(who, "POST", f"/cases/{case_id}/ranking/{rk['version']}/confirm")
+        candidate_ids = [row["candidate_id"] for row in rk["rows"]]
+        return self.ok(who, "POST", f"/cases/{case_id}/ranking/{rk['version']}/shortlist",
+                       json={"candidate_ids": candidate_ids})
 
     def proposal(self, case_id: str, cand_id: str, start="2030-05-01T10:00:00Z") -> dict:
         self.shortlist(case_id)
@@ -442,6 +446,59 @@ def ai_004(c: Ctx):
     return c.result()
 
 
+def au_005(c: Ctx):
+    case = c.case()
+    d = c.upload(case, FX / "ai004_contact_canary.pdf")
+    cid = d["candidate_id"]
+    before = c.ok("R-ALPHA", "GET", f"/candidates/{cid}")
+    listed = c.ok("R-ALPHA", "GET", f"/cases/{case}/candidates")
+    c.check("candidate record is pseudonym-only before shortlist",
+            "display_name" not in before and "display_name" not in listed[0] and
+            "candidate-ai04@example.invalid" not in json.dumps([before, listed]))
+    rk = c.ok("R-ALPHA", "POST", f"/cases/{case}/ranking")
+    confirmed = c.ok("R-ALPHA", "POST", f"/cases/{case}/ranking/{rk['version']}/shortlist",
+                     json={"candidate_ids": [cid]})
+    after = c.ok("R-ALPHA", "GET", f"/candidates/{cid}")
+    c.check("selected identity is available only after explicit shortlist",
+            confirmed["status"] == "CONFIRMED" and bool(after.get("display_name")))
+    return c.result()
+
+
+def ai_005(c: Ctx):
+    case = c.case()
+    d = c.upload(case, FX / "ai004_contact_canary.pdf")
+    response = c.ok("M-ALPHA", "GET", f"/documents/{d['document']['id']}/extraction")
+    text = response["visible_text"] + response["hidden_text"]
+    c.check("hiring-manager extraction redacts contact data",
+            "candidate-ai04@example.invalid" not in text and "+1-202-555-0147" not in text and
+            "[EMAIL]" in text and "[PHONE]" in text)
+    return c.result()
+
+
+def ai_006(c: Ctx):
+    case = c.case()
+    d = c.upload(case, FX / "ai004_contact_canary.pdf")
+    path = f"/documents/{d['document']['id']}/pages/1.png"
+    recruiter = c.req("R-ALPHA", "GET", path)
+    manager = c.req("M-ALPHA", "GET", path)
+    images_ok = recruiter.status_code == manager.status_code == 200
+    if images_ok:
+        original = Image.open(io.BytesIO(recruiter.content)).convert("RGB")
+        redacted = Image.open(io.BytesIO(manager.content)).convert("RGB")
+        import numpy as np
+        pixels = np.asarray(original)
+        masked = np.asarray(redacted)
+        changed = np.any(pixels != masked, axis=2)
+        white = np.all(masked == 255, axis=2)
+        is_redacted = bool(changed.any() and np.all(white[changed]))
+    else:
+        is_redacted = False
+    c.check("non-recruiter receives a PII-redacted CV render", images_ok and is_redacted,
+            {"recruiter_status": recruiter.status_code, "manager_status": manager.status_code,
+             "changed_pixels": int(changed.sum()) if images_ok else 0})
+    return c.result()
+
+
 SCENARIOS = {
     "PI-001": pi_001, "PI-002": pi_002, "PI-003": pi_003, "PI-004": pi_004,
     "AU-001": au_001, "AU-002": au_002, "AU-003": au_003, "AU-004": au_004,
@@ -449,4 +506,5 @@ SCENARIOS = {
     "EI-001": ei_001, "EI-002": ei_002, "EI-003": ei_003, "EI-004": ei_004,
     "DS-001": ds_001, "DS-002": ds_002, "DS-003": ds_003, "DS-004": ds_004,
     "AI-001": ai_001, "AI-002": ai_002, "AI-003": ai_003, "AI-004": ai_004,
+    "AU-005": au_005, "AI-005": ai_005, "AI-006": ai_006,
 }

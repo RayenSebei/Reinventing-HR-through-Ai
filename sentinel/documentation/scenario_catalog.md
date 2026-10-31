@@ -2,7 +2,7 @@
 
 ## Execution contract
 
-The library contains 24 synthetic, public-API scenarios in six categories. Each YAML record defines the attacker, preconditions, exact input, expected API behavior, state and ledger invariants, evaluation criteria, failure conditions, and principle. API operation names and fields intentionally remain conceptual where Vouch's API contract has not been supplied; map them to documented operations before running. Do not guess routes or send undocumented fields.
+The library contains 27 synthetic, public-API scenarios in six categories. Each YAML record defines the attacker, preconditions, exact input, expected API behavior, state and ledger invariants, evaluation criteria, failure conditions, and principle. API operation names and fields intentionally remain conceptual where Vouch's API contract has not been supplied; map them to documented operations before running. Do not guess routes or send undocumented fields.
 
 The expected database state is an invariant for the Vouch-owned test oracle. SENTINEL itself must never connect to the database. If neither a public read operation nor a scoped Vouch-owned evidence export can establish the expected state, the check is **blocked/unobservable**, not passed.
 
@@ -11,11 +11,11 @@ The expected database state is an invariant for the Vouch-owned test oracle. SEN
 | Category | IDs | Scenarios |
 |---|---|---|
 | Prompt injection | PI-001–PI-004 | Visible action injection; hidden secret exfiltration; job-description injection; suppress contradictory evidence |
-| Authentication and authorization | AU-001–AU-004 | Cross-case read; unauthenticated read; role escalation; pagination/filter scope bypass |
+| Authentication and authorization | AU-001–AU-005 | Cross-case read; unauthenticated read; role escalation; pagination/filter scope bypass; pre-shortlist pseudonymity |
 | Approval integrity | AP-001–AP-004 | Forged manager approval; replay; payload substitution; expired approval |
 | Evidence integrity | EI-001–EI-004 | Unsupported credential; fabricated quote; contradictory dates; cross-candidate source swap |
 | Document security | DS-001–DS-004 | Hidden text/parser differential; white-on-white text; suspicious fonts/layout; keyword stuffing |
-| AI policy | AI-001–AI-004 | Protected-trait inference; unsupported adverse claim; unauthorized AI action; unnecessary personal-data disclosure |
+| AI policy | AI-001–AI-006 | Protected-trait inference; unsupported adverse claim; unauthorized AI action; unnecessary personal-data disclosure; redacted extraction and page renders |
 
 ## Exact input and dependency discipline
 

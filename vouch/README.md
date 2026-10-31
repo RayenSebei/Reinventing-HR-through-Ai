@@ -35,18 +35,18 @@ Run the tests: `python -m pytest -q` (from `vouch/`). This includes all 24 SENTI
 5. Switch to **manager** and press "Approve this exact content".
 6. Switch back to **recruiter**, press "Change time (+2 h)", then "Send through the gateway".
    **The gateway refuses it:** the content changed after approval. (Draft again, approve, send, and it goes to the outbox.)
-7. **Assurance tab:** "Run the 24 attacks now". SENTINEL attacks a separate copy of Vouch and shows the results live.
+7. **Assurance tab:** run the SENTINEL scenarios. SENTINEL attacks a separate copy of Vouch and shows the results live.
 
 Backup plan: record steps 1–7 once as a video before the pitch.
 
 ## How it works
 
 ```
-CV (PDF) ─► upload + SHA-256 ─► hidden-text check (render page, look for ink)
+CV (PDF) ─► upload + SHA-256 ─► hidden-text check (compare page renders with and without text objects)
         ─► visible text only ─► remove personal data ─► AI model or word list (extracts quotes, has no tools)
         ─► quote checker (is the quote really in the CV?) ─► SOURCED / NEEDS_REVIEW / NOT_FOUND
         ─► deterministic ranking (weights × evidence, no auto-reject) ─► recruiter confirms shortlist
-        ─► draft email (proposal + SHA-256 of exact content) ─► manager approves THAT hash
+        ─► draft email (proposal + SHA-256 of canonical payload) ─► manager approves THAT hash
         ─► Action Gateway re-checks everything ─► sandbox outbox ─► (optional) n8n delivers it
 every step ─► Trust Ledger (hash chain)
 ```
@@ -61,7 +61,7 @@ every step ─► Trust Ledger (hash chain)
 | `app/gateway.py` | proposals, approvals (bound to the hash, expire, single use), the Action Gateway, n8n delivery |
 | `app/ledger.py` | hash-chained event log + verification |
 | `app/security.py`, `schemas.py` | login tokens, per-case access, request models that reject unknown fields |
-| `static/` | the screens (plain HTML/JS, no build step, works offline) |
+| `static/app/` | locally built React dashboard assets |
 
 ## Choosing the AI model
 
@@ -74,7 +74,9 @@ Set `VOUCH_MODEL` before starting:
 | `ollama` | Local model through Ollama | `VOUCH_OLLAMA_URL`, `VOUCH_OLLAMA_MODEL` (default `qwen3:8b`) |
 | `replay` | Re-uses answers recorded from earlier `openai`/`ollama` runs. Use this on stage. | – |
 
-Whatever the model says, **code checks every quote** against the visible CV text. A quote that isn't really there is rejected and shown as an alert. An answer with any extra field (like an "action") is thrown away.
+Whatever the model says, **code checks every quote** against the visible CV text. Unsupported quotes are not stored as evidence and trigger an alert; this reduces hallucination risk but cannot guarantee zero hallucinations. An answer with any extra field (like an "action") is thrown away.
+
+The approval digest is `SHA-256(UTF-8(canonical(payload)))`; canonical JSON uses sorted keys and compact separators, and disallows floating-point values. The approval nonce is checked against the matching approval event in the append-only ledger before execution.
 
 ## Rules this code enforces
 
@@ -99,7 +101,7 @@ Whatever the model says, **code checks every quote** against the visible CV text
 
 ## Data handling
 
-Original CVs stay on the Vouch server (`data/originals`, read-only). Only visible text with personal data removed is sent to an AI model. The ledger stores IDs and hashes, never CV text or contact details. The retention period is set by `VOUCH_RETENTION_DAYS` (default 180); automatic deletion is on the roadmap.
+Original CVs stay on the Vouch server (`data/originals`, read-only). Only visible text with personal data removed is sent to an AI model. The ledger stores IDs and hashes, never CV text or contact details. `VOUCH_RETENTION_DAYS` (default 180) controls automatic purge at startup and via `python -m app.retention`; candidate erasure also removes the original document, extraction, and dossier while retaining the ledger.
 
 ## Honest limits
 

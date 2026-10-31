@@ -25,7 +25,7 @@ def rank(criteria: list[dict], candidates: list[dict]) -> list[dict]:
                 missing.append(c["label"])
             if e["status"] == "NEEDS_REVIEW":
                 review_weight += c["weight"]
-        score = round(half_points / 2)   # 0..100, integer
+        score = (half_points + 1) // 2   # round half-points up deterministically
         flags = []
         if review_weight > 30:
             flags.append("BORDERLINE_REVIEW")

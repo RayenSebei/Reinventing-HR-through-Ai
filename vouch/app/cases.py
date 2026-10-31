@@ -5,7 +5,7 @@ from pathlib import Path
 
 from . import config, db, documents, evidence, ledger, pii, ranking
 from .canonical import canonical, sha256_hex
-from .errors import conflict, invalid, not_found
+from .errors import conflict, forbidden, invalid, not_found
 from .security import READ_ALL_ROLES, require_case_read, require_case_write, require_role
 
 
@@ -54,6 +54,11 @@ def get_case(user: dict, case_id: str) -> dict:
 def set_criteria(user: dict, case_id: str, body) -> dict:
     require_case_write(user, case_id)
     with db.tx() as conn:
+        evidence_count = conn.execute(
+            "SELECT COUNT(*) FROM evidence_items e JOIN candidates c ON c.id=e.candidate_id WHERE c.case_id=?",
+            (case_id,)).fetchone()[0]
+        if evidence_count:
+            raise conflict("CRITERIA_LOCKED", "Criteria cannot change after candidate evidence exists.")
         conn.execute("DELETE FROM criteria WHERE case_id=?", (case_id,))
         for i, c in enumerate(body.criteria):
             conn.execute("INSERT INTO criteria VALUES (?,?,?,?,?,?,?)",
@@ -94,25 +99,42 @@ def upload_cv(user: dict, case_id: str, filename: str, data: bytes) -> dict:
     if not case["criteria_confirmed_at"]:
         raise conflict("CRITERIA_NOT_CONFIRMED", "Confirm the job criteria before uploading CVs.")
     sha = sha256_hex(data)
+    duplicate = db.one("SELECT candidate_id FROM documents WHERE case_id=? AND sha256=?", (case_id, sha))
+    if duplicate:
+        raise conflict("DUPLICATE_DOCUMENT", "This CV has already been uploaded to this case.",
+                       candidate_id=duplicate["candidate_id"])
     analysis = documents.analyse_pdf(data)
     findings = documents.find_findings(analysis)
     vis = documents.visible_text(analysis)
     contact = documents.contacts(vis)
     crit = _criteria(case_id)
+    criteria_ids = [criterion["id"] for criterion in crit]
     items, extra = evidence.build(crit, analysis, findings, sha)
     findings += extra
 
-    n = db.one("SELECT COUNT(*) AS n FROM candidates WHERE case_id=?", (case_id,))["n"] + 1
-    cand_id, doc_id = db.new_id("CAND"), db.new_id("DOC")
-    pseudonym = f"Candidate {n:03d}"
-    display = documents.guess_name(vis) or pseudonym
-    email = contact["emails"][0] if contact["emails"] else f"{cand_id.lower()}@candidates.example.invalid"
-    path = config.ORIGINALS_DIR / f"{sha}.pdf"
-    if not path.exists():
-        path.write_bytes(data)
-        path.chmod(0o444)
     safe_name = Path(filename or "cv.pdf").name[:120]
     with db.tx() as conn:
+        live_case = conn.execute("SELECT criteria_confirmed_at FROM cases WHERE id=?", (case_id,)).fetchone()
+        if not live_case or not live_case["criteria_confirmed_at"]:
+            raise conflict("CRITERIA_NOT_CONFIRMED", "Confirm the job criteria before uploading CVs.")
+        live_criteria = [row["id"] for row in conn.execute(
+            "SELECT id FROM criteria WHERE case_id=? ORDER BY position", (case_id,)).fetchall()]
+        if live_criteria != criteria_ids:
+            raise conflict("CRITERIA_CHANGED", "Criteria changed while this CV was being analysed; retry the upload.")
+        duplicate = conn.execute("SELECT candidate_id FROM documents WHERE case_id=? AND sha256=?",
+                                 (case_id, sha)).fetchone()
+        if duplicate:
+            raise conflict("DUPLICATE_DOCUMENT", "This CV has already been uploaded to this case.",
+                           candidate_id=duplicate["candidate_id"])
+        n = conn.execute("SELECT COUNT(*) FROM candidates WHERE case_id=?", (case_id,)).fetchone()[0] + 1
+        cand_id, doc_id = db.new_id("CAND"), db.new_id("DOC")
+        pseudonym = f"Candidate {n:03d}"
+        display = documents.guess_name(vis) or pseudonym
+        email = contact["emails"][0] if contact["emails"] else f"{cand_id.lower()}@candidates.example.invalid"
+        path = config.ORIGINALS_DIR / f"{sha}.pdf"
+        if not path.exists():
+            path.write_bytes(data)
+            path.chmod(0o444)
         conn.execute("INSERT INTO candidates VALUES (?,?,?,?,?,?)", (cand_id, case_id, pseudonym, display, email, db.now()))
         conn.execute("INSERT INTO documents VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                      (doc_id, cand_id, case_id, sha, safe_name, str(path), len(analysis["pages"]), user["id"],
@@ -142,15 +164,30 @@ def list_candidates(user: dict, case_id: str, limit: int, offset: int) -> list[d
     for c in db.q("SELECT * FROM candidates WHERE case_id=? ORDER BY created_at LIMIT ? OFFSET ?", (case_id, limit, offset)):
         doc = db.one("SELECT id, filename FROM documents WHERE candidate_id=?", (c["id"],))
         f = db.q("SELECT type FROM findings WHERE document_id=?", (doc["id"],)) if doc else []
-        out.append({"id": c["id"], "pseudonym": c["pseudonym"], "display_name": c["display_name"],
-                    "document_id": doc["id"] if doc else None, "filename": doc["filename"] if doc else None,
-                    "finding_types": sorted({r["type"] for r in f})})
+        candidate = {"id": c["id"], "pseudonym": c["pseudonym"],
+                     "document_id": doc["id"] if doc else None,
+                     "finding_types": sorted({r["type"] for r in f})}
+        if _is_shortlisted(case_id, c["id"]):
+            candidate["display_name"] = c["display_name"]
+            candidate["filename"] = doc["filename"] if doc else None
+        out.append(candidate)
     return out
+
+
+def _is_shortlisted(case_id: str, cand_id: str) -> bool:
+    return db.one(
+        "SELECT 1 FROM shortlisted_candidates s JOIN rankings r "
+        "ON r.case_id=s.case_id AND r.version=s.ranking_version "
+        "WHERE s.case_id=? AND s.candidate_id=? AND r.status='CONFIRMED' "
+        "ORDER BY s.ranking_version DESC LIMIT 1", (case_id, cand_id)) is not None
 
 
 def get_candidate(user: dict, cand_id: str) -> dict:
     c = _cand(user, cand_id)
-    return {"id": c["id"], "case_id": c["case_id"], "pseudonym": c["pseudonym"], "display_name": c["display_name"]}
+    candidate = {"id": c["id"], "case_id": c["case_id"], "pseudonym": c["pseudonym"]}
+    if _is_shortlisted(c["case_id"], cand_id):
+        candidate["display_name"] = c["display_name"]
+    return candidate
 
 
 def dossier(user: dict, cand_id: str) -> dict:
@@ -174,6 +211,45 @@ def dossier(user: dict, cand_id: str) -> dict:
             "evidence": ev, "findings": findings,
             "statement": "Evidence statuses: SOURCED = quoted from the CV (a candidate claim, not independently verified); "
                          "NEEDS_REVIEW = needs a human look; NOT_FOUND = no evidence found in the CV."}
+
+
+def _erase_candidate(cand_id: str, actor: str, reason: str) -> None:
+    with db.tx() as conn:
+        candidate = conn.execute("SELECT * FROM candidates WHERE id=?", (cand_id,)).fetchone()
+        if not candidate:
+            raise not_found("Candidate")
+        docs = conn.execute("SELECT * FROM documents WHERE candidate_id=?", (cand_id,)).fetchall()
+        for doc in docs:
+            shared = conn.execute("SELECT 1 FROM documents WHERE path=? AND id!=? LIMIT 1",
+                                  (doc["path"], doc["id"])).fetchone()
+            path = Path(doc["path"]).resolve()
+            if not shared and path.parent == config.ORIGINALS_DIR.resolve() and path.exists():
+                path.chmod(0o600)
+                path.unlink()
+            conn.execute("DELETE FROM findings WHERE document_id=?", (doc["id"],))
+        conn.execute("DELETE FROM evidence_items WHERE candidate_id=?", (cand_id,))
+        proposal_ids = [r["id"] for r in conn.execute("SELECT id FROM proposals WHERE candidate_id=?", (cand_id,))]
+        for proposal_id in proposal_ids:
+            conn.execute("DELETE FROM approvals WHERE proposal_id=?", (proposal_id,))
+            conn.execute("DELETE FROM outbox WHERE proposal_id=?", (proposal_id,))
+        conn.execute("DELETE FROM proposals WHERE candidate_id=?", (cand_id,))
+        conn.execute("DELETE FROM shortlisted_candidates WHERE candidate_id=?", (cand_id,))
+        conn.execute("DELETE FROM documents WHERE candidate_id=?", (cand_id,))
+        conn.execute("DELETE FROM candidates WHERE id=?", (cand_id,))
+        ledger.append(conn, actor, "DOCUMENT_ERASED", candidate["case_id"], cand_id,
+                      {"document_hashes": sorted(doc["sha256"] for doc in docs), "reason": reason})
+
+
+def delete_candidate(user: dict, cand_id: str) -> dict:
+    candidate = _cand(user, cand_id)
+    if user["role"] == "recruiter":
+        require_case_write(user, candidate["case_id"])
+    elif user["role"] == "hr_admin":
+        require_case_read(user, candidate["case_id"])
+    else:
+        raise forbidden("FORBIDDEN_ROLE", "Candidate erasure needs the recruiter or hr_admin role.")
+    _erase_candidate(cand_id, user["id"], "requested")
+    return {"deleted": True, "candidate_id": cand_id}
 
 
 def regenerate_dossier(user: dict, cand_id: str) -> dict:
@@ -203,8 +279,12 @@ def _doc(user: dict, doc_id: str):
 def extraction(user: dict, doc_id: str) -> dict:
     d = _doc(user, doc_id)
     a = db.loads(d["analysis_json"])
-    return {"document_id": d["id"], "sha256": d["sha256"], "visible_text": documents.visible_text(a),
-            "hidden_text": documents.hidden_text(a),
+    visible = documents.visible_text(a)
+    hidden = documents.hidden_text(a)
+    if user["role"] == "hiring_manager":
+        visible, hidden = pii.redact(visible), pii.redact(hidden)
+    return {"document_id": d["id"], "sha256": d["sha256"], "visible_text": visible,
+            "hidden_text": hidden,
             "pages": [{"number": p["number"], "width": p["width"], "height": p["height"]} for p in a["pages"]]}
 
 
@@ -216,7 +296,9 @@ def document_findings(user: dict, doc_id: str) -> list[dict]:
 
 def page_png(user: dict, doc_id: str, page: int) -> bytes:
     d = _doc(user, doc_id)
-    return documents.render_page_png(Path(d["path"]).read_bytes(), page)
+    analysis = db.loads(d["analysis_json"])
+    redactions = documents.pii_boxes(analysis) if user["role"] != "recruiter" else None
+    return documents.render_page_png(Path(d["path"]).read_bytes(), page, redact_boxes=redactions)
 
 
 # --- ranking ----------------------------------------------------------------
@@ -252,6 +334,29 @@ def confirm_ranking(user: dict, case_id: str, version: int) -> dict:
         conn.execute("UPDATE rankings SET status='SUPERSEDED' WHERE case_id=? AND status='CONFIRMED'", (case_id,))
         conn.execute("UPDATE rankings SET status='CONFIRMED', confirmed_by=?, confirmed_at=? WHERE id=?", (user["id"], db.now(), r["id"]))
         ledger.append(conn, user["id"], "SHORTLIST_CONFIRMED", case_id, r["id"], {"version": version})
+    return get_ranking(user, case_id)
+
+
+def shortlist(user: dict, case_id: str, version: int, body) -> dict:
+    require_case_write(user, case_id)
+    with db.tx() as conn:
+        row = conn.execute("SELECT * FROM rankings WHERE case_id=? AND version=?", (case_id, version)).fetchone()
+        if not row:
+            raise not_found("Ranking")
+        if row["status"] != "DRAFT":
+            raise conflict("NOT_A_DRAFT", "Only a draft ranking can be shortlisted.")
+        ranked_ids = {item["candidate_id"] for item in db.loads(row["payload_json"], [])}
+        requested = set(body.candidate_ids)
+        if not requested.issubset(ranked_ids):
+            raise invalid("candidate_ids must be selected from this ranking.")
+        conn.execute("UPDATE rankings SET status='SUPERSEDED' WHERE case_id=? AND status='CONFIRMED'", (case_id,))
+        conn.execute("UPDATE rankings SET status='CONFIRMED', confirmed_by=?, confirmed_at=? WHERE id=?",
+                     (user["id"], db.now(), row["id"]))
+        conn.execute("DELETE FROM shortlisted_candidates WHERE case_id=? AND ranking_version=?", (case_id, version))
+        conn.executemany("INSERT INTO shortlisted_candidates VALUES (?,?,?)",
+                         [(case_id, version, candidate_id) for candidate_id in sorted(requested)])
+        ledger.append(conn, user["id"], "SHORTLIST_CONFIRMED", case_id, row["id"],
+                      {"version": version, "candidate_ids": sorted(requested)})
     return get_ranking(user, case_id)
 
 

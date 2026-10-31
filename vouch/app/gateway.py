@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -37,7 +38,24 @@ def _valid_start(s: str | None) -> str:
         raise invalid("start must be an ISO 8601 date-time, e.g. 2030-05-01T10:00:00Z")
     if dt.tzinfo is None:
         raise invalid("start must include a time zone (use Z for UTC).")
-    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    dt = dt.astimezone(timezone.utc).replace(microsecond=0)
+    if dt < db.utcnow():
+        raise invalid("start must not be in the past.")
+    return dt.isoformat().replace("+00:00", "Z")
+
+
+_EMAIL = re.compile(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+")
+
+
+def _validate_payload(payload: dict) -> None:
+    recipient = payload.get("recipient", "")
+    subject = payload.get("subject", "")
+    if "\r" in recipient or "\n" in recipient or not _EMAIL.fullmatch(recipient):
+        raise invalid("recipient must be a valid email address without line breaks.")
+    if "\r" in subject or "\n" in subject:
+        raise invalid("subject must not contain line breaks.")
+    if payload.get("kind") == "interview_invite":
+        _valid_start(payload.get("start"))
 
 
 def draft_text(kind: str, pseudonym: str, case_title: str, start: str, minutes: int) -> tuple[str, str]:
@@ -55,21 +73,28 @@ def draft_text(kind: str, pseudonym: str, case_title: str, start: str, minutes: 
 
 def create_proposal(user: dict, case_id: str, body) -> dict:
     case = require_case_write(user, case_id, roles=("recruiter",))
-    cand = db.one("SELECT * FROM candidates WHERE id=? AND case_id=?", (body.candidate_id, case_id))
-    if not cand:
-        raise not_found("Candidate")
-    confirmed = db.one("SELECT payload_json FROM rankings WHERE case_id=? AND status='CONFIRMED' ORDER BY version DESC LIMIT 1", (case_id,))
-    if not confirmed or body.candidate_id not in {r["candidate_id"] for r in db.loads(confirmed["payload_json"])}:
-        raise conflict("SHORTLIST_NOT_CONFIRMED", "Confirm the shortlist that includes this candidate first.")
-    start = _valid_start(body.start)
-    subject, text = draft_text(body.kind, cand["pseudonym"], case["title"], start, body.duration_minutes)
-    payload = {"case_id": case_id, "candidate_id": cand["id"], "kind": body.kind,
-               "recipient": cand["contact_email"], "start": start if body.kind == "interview_invite" else None,
-               "duration_minutes": body.duration_minutes, "subject": subject, "body": text}
+    start = _valid_start(body.start) if body.kind == "interview_invite" else None
     pid = db.new_id("PROP")
-    h = payload_hash(payload)
     ts = db.now()
     with db.tx() as conn:
+        cand = conn.execute("SELECT * FROM candidates WHERE id=? AND case_id=?",
+                            (body.candidate_id, case_id)).fetchone()
+        if not cand:
+            raise not_found("Candidate")
+        selected = conn.execute(
+            "SELECT 1 FROM shortlisted_candidates s JOIN rankings r "
+            "ON r.case_id=s.case_id AND r.version=s.ranking_version "
+            "WHERE s.case_id=? AND s.candidate_id=? AND r.status='CONFIRMED'",
+            (case_id, body.candidate_id)).fetchone()
+        if not selected:
+            raise conflict("SHORTLIST_NOT_CONFIRMED",
+                           "Confirm a shortlist that explicitly includes this candidate first.")
+        subject, text = draft_text(body.kind, cand["pseudonym"], case["title"], start, body.duration_minutes)
+        payload = {"case_id": case_id, "candidate_id": cand["id"], "kind": body.kind,
+                   "recipient": cand["contact_email"], "start": start,
+                   "duration_minutes": body.duration_minutes, "subject": subject, "body": text}
+        _validate_payload(payload)
+        h = payload_hash(payload)
         conn.execute("INSERT INTO proposals VALUES (?,?,?,?,?,?,?,?,?,?)",
                      (pid, case_id, cand["id"], body.kind, canonical(payload), h, user["id"], "PENDING_APPROVAL", ts, ts))
         ledger.append(conn, user["id"], "PROPOSAL_CREATED", case_id, pid, {"payload_sha256": h, "kind": body.kind})
@@ -120,6 +145,7 @@ def edit_proposal(user: dict, pid: str, body) -> dict:
     if ("start" in changes or "duration_minutes" in changes) and "body" not in changes and payload["kind"] == "interview_invite":
         case = db.one("SELECT title FROM cases WHERE id=?", (p["case_id"],))
         payload["subject"], payload["body"] = draft_text(payload["kind"], "", case["title"], payload["start"], payload["duration_minutes"])
+    _validate_payload(payload)
     h = payload_hash(payload)
     with db.tx() as conn:
         # The approval is NOT moved to the new hash. It stays bound to what the manager saw.
@@ -140,57 +166,88 @@ def decide(user: dict, pid: str, decision: str) -> dict:
     if p["status"] == "EXECUTED":
         raise conflict("ALREADY_EXECUTED", "This action was already carried out.")
     aid = db.new_id("APPR")
+    nonce = secrets.token_hex(8)
     expires = (db.utcnow() + timedelta(minutes=config.APPROVAL_MINUTES)).replace(microsecond=0)
     with db.tx() as conn:
         conn.execute("INSERT INTO approvals VALUES (?,?,?,?,?,?,?,?,?)",
-                     (aid, pid, p["payload_sha256"], user["id"], decision, secrets.token_hex(8),
+                     (aid, pid, p["payload_sha256"], user["id"], decision, nonce,
                       expires.isoformat().replace("+00:00", "Z"), None, db.now()))
         conn.execute("UPDATE proposals SET status=?, updated_at=? WHERE id=?",
                      ("APPROVED" if decision == "approved" else "REJECTED", db.now(), pid))
         ledger.append(conn, user["id"], "APPROVED" if decision == "approved" else "REJECTED", p["case_id"], pid,
-                      {"payload_sha256": p["payload_sha256"], "approval_id": aid})
+                      {"payload_sha256": p["payload_sha256"], "approval_id": aid, "nonce": nonce})
     return get_proposal(user, pid)
 
 
-def _deny(conn_user: dict, p, code: str, message: str):
-    ledger.record(conn_user["id"], "EXECUTION_DENIED", p["case_id"], p["id"], {"code": code})
+def _deny(conn, conn_user: dict, p, code: str, message: str):
+    ledger.append(conn, conn_user["id"], "EXECUTION_DENIED", p["case_id"], p["id"], {"code": code})
     return conflict(code, message)
 
 
 def execute(user: dict, pid: str) -> dict:
-    p = _proposal_row(pid)
-    require_case_read(user, p["case_id"])
-    if user["role"] not in ("recruiter", "hiring_manager") or not is_member(user, p["case_id"]):
-        raise forbidden("FORBIDDEN_ROLE", "Only members of this case can carry out its actions.")
-    a = _latest_approval(pid)
-    if not a or a["decision"] != "approved":
-        raise _deny(user, p, "NO_VALID_APPROVAL", "No manager approval exists for this action.")
-    if a["used_at"]:
-        raise _deny(user, p, "APPROVAL_REPLAY", "This approval was already used. Each approval works once.")
-    if _parse_ts(a["expires_at"]) <= db.utcnow():
-        raise _deny(user, p, "APPROVAL_EXPIRED", "The approval has expired. Ask the manager to approve again.")
-    current_hash = payload_hash(db.loads(p["payload_json"]))
-    if current_hash != a["payload_sha256"] or current_hash != p["payload_sha256"]:
-        raise _deny(user, p, "APPROVAL_PAYLOAD_MISMATCH",
-                    "The action changed after the manager approved it. The approval no longer matches.")
-    oid = db.new_id("OUT")
+    denial = None
+    oid = None
+    p = None
+    current_hash = None
     with db.tx() as conn:
-        cur = conn.execute("UPDATE approvals SET used_at=? WHERE id=? AND used_at IS NULL", (db.now(), a["id"]))
-        if cur.rowcount != 1:   # someone else used it a moment ago
-            raise conflict("APPROVAL_REPLAY", "This approval was already used. Each approval works once.")
-        conn.execute("INSERT INTO outbox VALUES (?,?,?,?,?,?,?)",
-                     (oid, pid, p["case_id"], p["payload_json"], "QUEUED", "", db.now()))
-        conn.execute("UPDATE proposals SET status='EXECUTED', updated_at=? WHERE id=?", (db.now(), pid))
-        ledger.append(conn, user["id"], "EXECUTED", p["case_id"], pid,
-                      {"payload_sha256": current_hash, "approval_id": a["id"], "outbox_id": oid})
-    _deliver(oid, p["payload_json"], pid)
+        p = conn.execute("SELECT * FROM proposals WHERE id=?", (pid,)).fetchone()
+        if not p:
+            raise not_found("Proposal")
+        require_case_read(user, p["case_id"])
+        if user["role"] not in ("recruiter", "hiring_manager") or not is_member(user, p["case_id"]):
+            raise forbidden("FORBIDDEN_ROLE", "Only members of this case can carry out its actions.")
+        a = conn.execute("SELECT * FROM approvals WHERE proposal_id=? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                         (pid,)).fetchone()
+        if not a or a["decision"] != "approved":
+            denial = _deny(conn, user, p, "NO_VALID_APPROVAL", "No manager approval exists for this action.")
+        elif a["used_at"]:
+            denial = _deny(conn, user, p, "APPROVAL_REPLAY", "This approval was already used. Each approval works once.")
+        elif _parse_ts(a["expires_at"]) <= db.utcnow():
+            denial = _deny(conn, user, p, "APPROVAL_EXPIRED", "The approval has expired. Ask the manager to approve again.")
+        else:
+            approval_event = conn.execute(
+                "SELECT body_json FROM ledger WHERE type='APPROVED' AND case_id=? AND subject=? "
+                "ORDER BY seq DESC LIMIT 1", (p["case_id"], pid)).fetchone()
+            approval_body = db.loads(approval_event["body_json"], {}) if approval_event else {}
+            nonce_matches = (approval_body.get("approval_id") == a["id"] and
+                             hmac.compare_digest(a["nonce"], approval_body.get("nonce", "")))
+            if not nonce_matches:
+                denial = _deny(conn, user, p, "APPROVAL_NONCE_INVALID",
+                               "The approval nonce could not be verified against the ledger.")
+            else:
+                current_hash = payload_hash(db.loads(p["payload_json"]))
+                if current_hash != a["payload_sha256"] or current_hash != p["payload_sha256"]:
+                    denial = _deny(conn, user, p, "APPROVAL_PAYLOAD_MISMATCH",
+                                   "The action changed after the manager approved it. The approval no longer matches.")
+                else:
+                    try:
+                        _validate_payload(db.loads(p["payload_json"]))
+                    except ApiError as exc:
+                        denial = _deny(conn, user, p, "INVALID_PAYLOAD", exc.message)
+                    if not denial:
+                        oid = db.new_id("OUT")
+                        cur = conn.execute("UPDATE approvals SET used_at=? WHERE id=? AND used_at IS NULL", (db.now(), a["id"]))
+                        if cur.rowcount != 1:
+                            denial = _deny(conn, user, p, "APPROVAL_REPLAY",
+                                           "This approval was already used. Each approval works once.")
+                        else:
+                            conn.execute("INSERT INTO outbox VALUES (?,?,?,?,?,?,?)",
+                                         (oid, pid, p["case_id"], p["payload_json"], "QUEUED", "", db.now()))
+                            conn.execute("UPDATE proposals SET status='EXECUTED', updated_at=? WHERE id=?", (db.now(), pid))
+                            ledger.append(conn, user["id"], "EXECUTED", p["case_id"], pid,
+                                          {"payload_sha256": current_hash, "approval_id": a["id"], "outbox_id": oid})
+    if denial:
+        raise denial
+    _deliver(oid, p["payload_json"], pid, p["case_id"])
     return {"executed": True, "outbox_id": oid, "proposal": get_proposal(user, pid)}
 
 
-def _deliver(oid: str, payload_json: str, pid: str) -> None:
+def _deliver(oid: str, payload_json: str, pid: str, case_id: str) -> None:
     """Hand the approved action to n8n (optional). The sandbox outbox row is the record."""
     if not config.N8N_WEBHOOK_URL:
-        db.q("UPDATE outbox SET delivery_status='SANDBOX_ONLY' WHERE id=?", (oid,))
+        with db.tx() as conn:
+            conn.execute("UPDATE outbox SET delivery_status='SANDBOX_ONLY' WHERE id=?", (oid,))
+            ledger.append(conn, "gateway", "DELIVERY_SANDBOX_ONLY", case_id, oid, {"detail": ""})
         return
     sig = hmac.new(config.N8N_HMAC_SECRET.encode(), payload_json.encode("utf-8"), hashlib.sha256).hexdigest()
     try:
@@ -199,8 +256,9 @@ def _deliver(oid: str, payload_json: str, pid: str) -> None:
         status, detail = ("DELIVERED", "") if r.ok else ("DELIVERY_FAILED", f"n8n answered {r.status_code}")
     except requests.RequestException as e:
         status, detail = "DELIVERY_FAILED", type(e).__name__
-    db.q("UPDATE outbox SET delivery_status=?, delivery_detail=? WHERE id=?", (status, detail, oid))
-    ledger.record("gateway", "DELIVERY_" + status, None, oid, {"detail": detail})
+    with db.tx() as conn:
+        conn.execute("UPDATE outbox SET delivery_status=?, delivery_detail=? WHERE id=?", (status, detail, oid))
+        ledger.append(conn, "gateway", "DELIVERY_" + status, case_id, oid, {"detail": detail})
 
 
 def outbox(user: dict, case_id: str) -> list[dict]:

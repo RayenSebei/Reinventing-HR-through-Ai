@@ -58,6 +58,11 @@ CREATE TABLE IF NOT EXISTS rankings (
   payload_json TEXT NOT NULL, created_by TEXT NOT NULL, confirmed_by TEXT, confirmed_at TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS shortlisted_candidates (
+  case_id TEXT NOT NULL REFERENCES cases(id), ranking_version INTEGER NOT NULL,
+  candidate_id TEXT NOT NULL REFERENCES candidates(id),
+  PRIMARY KEY (case_id, ranking_version, candidate_id)
+);
 CREATE TABLE IF NOT EXISTS proposals (
   id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id),
   candidate_id TEXT NOT NULL REFERENCES candidates(id), kind TEXT NOT NULL,
@@ -77,8 +82,12 @@ CREATE TABLE IF NOT EXISTS outbox (
 CREATE TABLE IF NOT EXISTS ledger (
   seq INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, actor TEXT NOT NULL,
   type TEXT NOT NULL, case_id TEXT, subject TEXT, body_json TEXT NOT NULL,
-  prev_hash TEXT NOT NULL, hash TEXT NOT NULL
+  prev_hash TEXT NOT NULL, hash TEXT NOT NULL, mac TEXT NOT NULL DEFAULT ''
 );
+CREATE TRIGGER IF NOT EXISTS ledger_no_update BEFORE UPDATE ON ledger
+BEGIN SELECT RAISE(ABORT, 'ledger is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS ledger_no_delete BEFORE DELETE ON ledger
+BEGIN SELECT RAISE(ABORT, 'ledger is append-only'); END;
 """
 
 _conn: sqlite3.Connection | None = None
@@ -108,6 +117,9 @@ def connect() -> sqlite3.Connection:
         _conn.execute("PRAGMA journal_mode=WAL")
         _conn.execute("PRAGMA foreign_keys=ON")
         _conn.executescript(SCHEMA)
+        columns = {row["name"] for row in _conn.execute("PRAGMA table_info(ledger)").fetchall()}
+        if "mac" not in columns:
+            _conn.execute("ALTER TABLE ledger ADD COLUMN mac TEXT NOT NULL DEFAULT ''")
     return _conn
 
 
@@ -139,12 +151,15 @@ def wipe() -> None:
     """Delete everything (test mode / demo reset)."""
     conn = connect()
     with _lock:
+        conn.execute("DROP TRIGGER IF EXISTS ledger_no_update")
+        conn.execute("DROP TRIGGER IF EXISTS ledger_no_delete")
         tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
         conn.execute("PRAGMA foreign_keys=OFF")
         for t in tables:
             conn.execute(f"DELETE FROM {t}")
         conn.execute("DELETE FROM sqlite_sequence")
         conn.execute("PRAGMA foreign_keys=ON")
+        conn.executescript(SCHEMA)
 
 
 def dumps(obj) -> str:
