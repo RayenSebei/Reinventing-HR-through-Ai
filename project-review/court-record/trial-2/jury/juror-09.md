@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: I like that it protects the people on the other end, with no automatic rejection and a human approving every action, but as described it asks a team that still has not decided whether it is two people or four to build every safeguard from an empty workspace in 17 hours, and then stake 70 seconds of the demo on live tests that cannot run yet, so the promise of trust is bigger than what they can deliver.
+DECIDING FACT: The repo contains only a `sentinel/` folder with no Vouch code, the scenarios "are specifications, not executable tests" with no runner, and 16 of 24 still "require API-contract confirmation", yet the demo promises to "show real pass/fail" live.
+WOULD FLIP IF: The team confirmed its headcount and cut the plan down to the approval-plus-gateway path with a small set of SENTINEL scenarios that already have a working runner before the event, so the safety story they pitch is one they can actually show working.

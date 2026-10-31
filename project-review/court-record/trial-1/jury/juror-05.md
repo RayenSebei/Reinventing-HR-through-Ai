@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: The only part anyone in that room will actually remember is the live "we hacked it and it blocked us" moment, and it's crammed into hours 13 to 14.5 on an app that doesn't exist yet, so as described you're betting the whole hype beat on stuff nobody has ever run, and the rest is hash chains and evidence dossiers that put people to sleep.
+DECIDING FACT: "NO scenario has been executed against a working Vouch API. Vouch's API did not exist when scenarios were written," yet 70 seconds of the 5-minute demo depend on running 5 SENTINEL scenarios live and showing real pass/fail.
+WOULD FLIP IF: The plan moved a thin Vouch API plus the tampered-payload rejection and the SENTINEL live run to the first hours, with a recorded fallback if it breaks on stage, so the memorable moment is guaranteed and not left for the last stretch.

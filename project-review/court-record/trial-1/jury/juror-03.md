@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: If I were Workday or a rival team, I'd copy the payload-bound approval gate as a feature and ignore the rest, because the one thing I can't easily copy, "independent" assurance, is SENTINEL testing an API that doesn't exist yet with attacks written by the same team that builds the defense, and it is booked for the last hours of a schedule with no slack.
+DECIDING FACT: "NO scenario has been executed against a working Vouch API. Vouch's API did not exist when scenarios were written," and hidden-content detection is "only expected to be tested on the team's own planted fixtures."
+WOULD FLIP IF: The case showed SENTINEL's scenarios already running against a working Vouch API early in the build, and the claim of independence is backed by attacks the team did not write itself.

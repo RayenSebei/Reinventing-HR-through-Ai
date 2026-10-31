@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: As an HR buyer seeing this for the first time, I'm being asked to trust an "independent assurance layer" that has never once been run against the product, which doesn't exist yet, and I'd be switching away from the Workday or BambooHR agents I already have with no price and no other customer to point to, so I wouldn't buy it this week as described.
+DECIDING FACT: "NO scenario has been executed against a working Vouch API. Vouch's API did not exist when scenarios were written". The one thing meant to make me believe this over the incumbents' HR AI agents has never been shown to work.
+WOULD FLIP IF: The record showed SENTINEL's scenarios already running against a working Vouch API, with real pass/fail results, including on French/Arabic/mixed CVs like the ones my team actually gets.

@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: The plan has a sample size of zero (no Vouch code, zero of 24 scenarios executed, SENTINEL's numbers come from a non-HR corpus and the team reported them itself), and it chains about nine sequential components into a schedule with no slack, so even if each step is fairly likely to work, the odds that all of them work on stage are poor.
+DECIDING FACT: "NO scenario has been executed against a working Vouch API. Vouch's API did not exist when scenarios were written." Yet 70 seconds of the demo depend on live SENTINEL pass/fail, which is scheduled for hours 13 to 14.5 after everything else has to work.
+WOULD FLIP IF: Before the pitch, the 5 demo SENTINEL scenarios and the gateway-rejection beat had actually run end to end against a working Vouch API (or the scope were cut so that this path is built and tested first), turning n=0 into observed results.

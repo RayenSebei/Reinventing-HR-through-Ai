@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: As a parent I don't let the family stake everything on one trip where the car isn't built yet, and this plan puts its whole pitch on two live moments, the gateway rejection and SENTINEL's pass/fail, scheduled last on code that doesn't exist, with no backup if they fail on stage.
+DECIDING FACT: The record says "NO scenario has been executed against a working Vouch API" and no Vouch code exists, yet 70 seconds of the five-minute demo are booked for live SENTINEL results that depend on integration done only in hours 13 to 14.5.
+WOULD FLIP IF: The case committed to a cut-down core (team size and model fixed, forensics limited to the demoed fixtures) and moved a working gateway plus a SENTINEL run against the real Vouch API to the middle of the schedule, with a recorded fallback demo ready if the live run breaks.

@@ -1,0 +1,4 @@
+VOTE: GUILTY
+REASON: The idea is a real gap worth backing, but as described I would be paying for a seven-subsystem build plus a live test harness that has no code yet, in 17 hours, with team size and model still open and no buyer validated, so the chance of a broken demo is higher than the payoff justifies.
+DECIDING FACT: The repo contains "ONLY a `sentinel/` folder" with no Vouch backend, frontend, API or tests, and "No runner or harness code for these scenarios exists," yet the demo's biggest segment (70s) depends on running them live against that API.
+WOULD FLIP IF: The scope were cut to a committed core (case, CV upload with the rendering-based hidden-text check, payload-bound approval and gateway) with a fixed team size and model, and a runnable harness for the 5 demo scenarios written against that API, so the evidence dossier, full ranking and four-role RBAC become stretch goals rather than requirements.
