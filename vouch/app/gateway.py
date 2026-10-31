@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from . import config, db, ledger
+from . import config, db, ledger, policy
 from .canonical import canonical, payload_hash
 from .errors import ApiError, conflict, forbidden, invalid, not_found
 from .security import is_member, require_case_read, require_case_write
@@ -167,7 +167,7 @@ def decide(user: dict, pid: str, decision: str) -> dict:
         raise conflict("ALREADY_EXECUTED", "This action was already carried out.")
     aid = db.new_id("APPR")
     nonce = secrets.token_hex(8)
-    expires = (db.utcnow() + timedelta(minutes=config.APPROVAL_MINUTES)).replace(microsecond=0)
+    expires = (db.utcnow() + timedelta(minutes=policy.read()["approval_ttl_minutes"])).replace(microsecond=0)
     with db.tx() as conn:
         conn.execute("INSERT INTO approvals VALUES (?,?,?,?,?,?,?,?,?)",
                      (aid, pid, p["payload_sha256"], user["id"], decision, nonce,

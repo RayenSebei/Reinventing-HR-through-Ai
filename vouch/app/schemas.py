@@ -2,6 +2,7 @@
 `role`, `approved_by`, `owner_id`, `document_id` or a replacement payload."""
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -76,3 +77,33 @@ class ProposalEdit(Strict):
     subject: str | None = Field(default=None, max_length=200)
     body: str | None = Field(default=None, max_length=5000)
     duration_minutes: int | None = Field(default=None, ge=15, le=240)
+
+
+class UserCreate(Strict):
+    email: str = Field(min_length=3, max_length=200)
+    name: str = Field(min_length=1, max_length=120)
+    role: Literal["recruiter", "hiring_manager", "hr_admin", "auditor"]
+    password: str = Field(min_length=12, max_length=200)
+
+    @field_validator("email")
+    @classmethod
+    def valid_email(cls, value):
+        if not re.fullmatch(r"[^@\s]+@[^@.\s]+(?:\.[^@.\s]+)+", value):
+            raise ValueError("email must be a valid address")
+        return value.lower()
+
+
+class UserRoleUpdate(Strict):
+    role: Literal["recruiter", "hiring_manager", "hr_admin", "auditor"]
+
+
+class PolicyUpdate(Strict):
+    approval_ttl_minutes: int | None = Field(default=None, ge=1, le=1440)
+    review_weight_threshold: int | None = Field(default=None, ge=0, le=100)
+
+    @field_validator("approval_ttl_minutes", "review_weight_threshold", mode="before")
+    @classmethod
+    def reject_null_values(cls, value):
+        if value is None:
+            raise ValueError("policy fields cannot be null")
+        return value

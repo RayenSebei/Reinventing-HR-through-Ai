@@ -20,7 +20,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import cases, config, dashboard, db, gateway, ledger, retention, schemas, testmode
+from . import cases, config, dashboard, db, gateway, ledger, policy, retention, schemas, testmode, workspace
 from .errors import ApiError, invalid, not_found
 from .security import check_password, current_user, hash_password, issue_token, require_role
 
@@ -68,6 +68,12 @@ def paging(request: Request, allowed=("limit", "offset")) -> tuple[int, int]:
 def no_query(request: Request):
     if request.query_params:
         raise invalid("This endpoint takes no query parameters.")
+
+
+def no_duplicate_query_keys(request: Request):
+    keys = [key for key, _ in request.query_params.multi_items()]
+    if len(keys) != len(set(keys)):
+        raise invalid("Query parameters may only be supplied once.")
 
 
 def ok(data, status=200):
@@ -121,12 +127,126 @@ def users(request: Request):
 
 @api("GET", "/meta")
 def meta(request: Request):
+    current_policy = policy.read()
     return ok({"model_mode": config.MODEL_MODE, "test_mode": config.TEST_MODE,
-               "n8n_delivery": bool(config.N8N_WEBHOOK_URL), "approval_minutes": config.APPROVAL_MINUTES,
+               "n8n_delivery": bool(config.N8N_WEBHOOK_URL),
+               "approval_minutes": current_policy["approval_ttl_minutes"],
                "data_handling": {
                    "retention_days": config.RETENTION_DAYS,
                    "statement": "Original CVs stay on the Vouch server. Only visible, personal-data-removed text is sent "
                                 "to an AI model. The Trust Ledger stores IDs and hashes, never CV text or contact details."}})
+
+
+@api("GET", "/candidates")
+def candidate_table(request: Request):
+    user = current_user(request)
+    no_duplicate_query_keys(request)
+    allowed = {"case_id", "search", "finding_type", "shortlisted", "sort", "order", "limit", "offset"}
+    extra = set(request.query_params) - allowed
+    if extra:
+        raise invalid(f"Unknown query parameter(s): {', '.join(sorted(extra))}.")
+    limit, offset = paging(request, allowed=allowed)
+    shortlisted = request.query_params.get("shortlisted")
+    if shortlisted not in (None, "true", "false"):
+        raise invalid("shortlisted must be true or false.")
+    return ok(workspace.candidate_table(
+        user, case_id=request.query_params.get("case_id"), search=request.query_params.get("search", ""),
+        finding_type=request.query_params.get("finding_type"),
+        shortlisted=None if shortlisted is None else shortlisted == "true",
+        sort=request.query_params.get("sort", "created_at"), order=request.query_params.get("order", "desc"),
+        limit=limit, offset=offset))
+
+
+@api("GET", "/candidates/compare")
+def compare_candidates(request: Request):
+    user = current_user(request)
+    no_duplicate_query_keys(request)
+    extra = set(request.query_params) - {"candidate_ids"}
+    if extra:
+        raise invalid(f"Unknown query parameter(s): {', '.join(sorted(extra))}.")
+    raw_ids = request.query_params.get("candidate_ids", "")
+    return ok(workspace.compare_candidates(user, [value for value in raw_ids.split(",") if value]))
+
+
+@api("GET", "/cases/{case_id}/analytics")
+def case_analytics(request: Request):
+    user = current_user(request)
+    no_query(request)
+    return ok(workspace.case_analytics(user, request.path_params["case_id"]))
+
+
+@api("GET", "/workspace/outbox")
+def workspace_outbox(request: Request):
+    user = current_user(request)
+    no_duplicate_query_keys(request)
+    allowed = {"case_id", "limit", "offset"}
+    extra = set(request.query_params) - allowed
+    if extra:
+        raise invalid(f"Unknown query parameter(s): {', '.join(sorted(extra))}.")
+    limit, offset = paging(request, allowed=allowed)
+    return ok(workspace.outbox_view(user, request.query_params.get("case_id"), limit, offset))
+
+
+@api("GET", "/audit/ledger")
+def audit_ledger(request: Request):
+    user = current_user(request)
+    no_duplicate_query_keys(request)
+    allowed = {"case_id", "limit", "offset"}
+    extra = set(request.query_params) - allowed
+    if extra:
+        raise invalid(f"Unknown query parameter(s): {', '.join(sorted(extra))}.")
+    limit, offset = paging(request, allowed=allowed)
+    return ok(workspace.audit_ledger(user, request.query_params.get("case_id"), limit, offset))
+
+
+@api("GET", "/audit/export")
+def audit_export(request: Request):
+    user = current_user(request)
+    no_query(request)
+    return ok(workspace.signed_audit_export(user))
+
+
+@api("GET", "/admin/users")
+def admin_users(request: Request):
+    user = current_user(request)
+    require_role(user, "hr_admin")
+    no_query(request)
+    return ok(workspace.list_users())
+
+
+@api("POST", "/admin/users")
+async def admin_create_user(request: Request):
+    user = await auth_user(request)
+    require_role(user, "hr_admin")
+    body = await body_as(request, schemas.UserCreate)
+    return ok(await run_in_threadpool(workspace.create_user, user, body), 201)
+
+
+@api("PATCH", "/admin/users/{user_id}/role")
+async def admin_change_role(request: Request):
+    user = await auth_user(request)
+    require_role(user, "hr_admin")
+    body = await body_as(request, schemas.UserRoleUpdate)
+    return ok(await run_in_threadpool(workspace.change_user_role, user, request.path_params["user_id"], body.role))
+
+
+@api("GET", "/admin/policy")
+def admin_get_policy(request: Request):
+    user = current_user(request)
+    require_role(user, "hr_admin")
+    no_query(request)
+    return ok(policy.read())
+
+
+@api("PUT", "/admin/policy")
+async def admin_update_policy(request: Request):
+    user = await auth_user(request)
+    require_role(user, "hr_admin")
+    body = await body_as(request, schemas.PolicyUpdate)
+    values = body.model_dump(exclude_unset=True)
+    if not values:
+        raise invalid("Set at least one policy field.")
+    return ok(await run_in_threadpool(policy.update, values, user["id"]))
 
 
 # --- cases ------------------------------------------------------------------
@@ -471,6 +591,15 @@ def legacy_index(request):
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
 
+def client_route(request):
+    path = request.url.path
+    if path == "/api" or path.startswith("/api/") or path == "/static" or path.startswith("/static/"):
+        return JSONResponse({"error": {"code": "NOT_FOUND", "message": "Resource not found."}}, status_code=404)
+    if Path(request.path_params["path"]).suffix:
+        return JSONResponse({"error": {"code": "NOT_FOUND", "message": "Resource not found."}}, status_code=404)
+    return index(request)
+
+
 def build_app() -> Starlette:
     db.connect()
     ledger.initialize()
@@ -485,6 +614,7 @@ def build_app() -> Starlette:
         Route("/", index),
         Route("/legacy", legacy_index),
         Mount("/static", StaticFiles(directory=str(STATIC)), name="static"),
+        Route("/{path:path}", client_route),
     ]
     return Starlette(routes=all_routes, middleware=[Middleware(SecurityHeaders)], lifespan=lifespan,
                      exception_handlers={ApiError: api_error, ValidationError: validation_error, Exception: server_error})

@@ -63,6 +63,15 @@ every step ─► Trust Ledger (hash chain)
 | `app/security.py`, `schemas.py` | login tokens, per-case access, request models that reject unknown fields |
 | `static/app/` | locally built React dashboard assets |
 
+## Workspace API
+
+The dashboard uses `/api/candidates` for scoped filtering and pagination,
+`/api/candidates/compare`, `/api/cases/{id}/analytics`, and `/api/workspace/outbox`.
+`/api/audit/ledger` includes event hashes, previous hashes, MACs, and the ledger head;
+`/api/audit/export` returns the caller's role-scoped JSON export with an HMAC-SHA256
+signature. HR administrators manage users and the persisted approval TTL and review
+threshold through `/api/admin/users` and `/api/admin/policy`.
+
 ## Choosing the AI model
 
 Set `VOUCH_MODEL` before starting:

@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS shortlisted_candidates (
   candidate_id TEXT NOT NULL REFERENCES candidates(id),
   PRIMARY KEY (case_id, ranking_version, candidate_id)
 );
+CREATE TABLE IF NOT EXISTS app_policy (
+  key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS proposals (
   id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id),
   candidate_id TEXT NOT NULL REFERENCES candidates(id), kind TEXT NOT NULL,
