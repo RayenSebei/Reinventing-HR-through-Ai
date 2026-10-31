@@ -203,8 +203,14 @@ def test_admin_user_and_policy_management(client):
 def test_spa_fallback_never_handles_api_or_asset_paths(client):
     route = client.get("/cases/CASE-DEMO", headers=auth())
     assert route.status_code == 200 and "<html" in route.text.lower()
+    legacy_route = client.get("/legacy", headers=auth())
+    assert legacy_route.status_code == 200 and "<html" in legacy_route.text.lower()
     api_404 = client.get("/api/route-that-does-not-exist", headers=auth())
     assert api_404.status_code == 404 and api_404.json()["error"]["code"] == "NOT_FOUND"
     api_root = client.get("/api")
     assert api_root.status_code == 404 and "html" not in api_root.text.lower()
     assert client.get("/missing.js").status_code == 404
+
+
+def test_meta_reports_demo_mode_configuration(client):
+    assert client.get("/api/meta").json()["demo_mode"] is config.DEMO_MODE

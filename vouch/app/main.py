@@ -129,6 +129,7 @@ def users(request: Request):
 def meta(request: Request):
     current_policy = policy.read()
     return ok({"model_mode": config.MODEL_MODE, "test_mode": config.TEST_MODE,
+               "demo_mode": config.DEMO_MODE,
                "n8n_delivery": bool(config.N8N_WEBHOOK_URL),
                "approval_minutes": current_policy["approval_ttl_minutes"],
                "data_handling": {
@@ -587,10 +588,6 @@ def index(request):
     return FileResponse(STATIC / "app" / "index.html", headers={"Cache-Control": "no-cache"})
 
 
-def legacy_index(request):
-    return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
-
-
 def client_route(request):
     path = request.url.path
     if path == "/api" or path.startswith("/api/") or path == "/static" or path.startswith("/static/"):
@@ -612,7 +609,6 @@ def build_app() -> Starlette:
     all_routes = routes + [
         Route("/api/{rest:path}", api_404, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
         Route("/", index),
-        Route("/legacy", legacy_index),
         Mount("/static", StaticFiles(directory=str(STATIC)), name="static"),
         Route("/{path:path}", client_route),
     ]

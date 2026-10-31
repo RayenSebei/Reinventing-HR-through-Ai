@@ -1,6 +1,6 @@
 export type User = { id: string; name: string; email: string; role: 'recruiter' | 'hiring_manager' | 'auditor' | 'hr_admin' }
 export type Session = { token: string; user: User }
-export type Meta = { model_mode: string; n8n_delivery: boolean; approval_minutes: number; test_mode: boolean }
+export type Meta = { model_mode: string; n8n_delivery: boolean; approval_minutes: number; test_mode: boolean; demo_mode: boolean }
 export type Attention = { id: string; kind: string; title: string; case_id?: string; case_title?: string; state?: string; expires_at?: string }
 export type Overview = {
   generated_at: string
@@ -10,6 +10,12 @@ export type Overview = {
   alerts_by_severity: Record<string, number>
   proposals_by_status: Record<string, number>
   delivery_by_status: Record<string, number>
+  activity_trends: {
+    cvs_analysed: number[]
+    security_alerts: number[]
+    approval_activity: number[]
+    gateway_sent: number[]
+  }
   attention: Attention[]; attention_total: number
   cases: { id: string; title: string; candidate_count: number }[]
   recent_events: { seq: number; ts: string; actor: string; actor_name: string; actor_role: string; type: string; case_id: string | null; subject: string | null; hash: string; prev_hash: string }[]
@@ -38,13 +44,20 @@ export async function api<T>(path: string, token?: string, options: RequestInit 
   }
   return data as T
 }
+export async function apiBlob(path: string, token: string): Promise<Blob> {
+  const headers = new Headers()
+  headers.set('Authorization', `Bearer ${token}`)
+  const response = await fetch('/api' + path, { headers })
+  if (!response.ok) {
+    let data: { error?: { code?: string; message?: string } } = {}
+    try { data = await response.json() as typeof data } catch { /* The response may be a non-JSON server error. */ }
+    const code = data.error?.code ?? 'REQUEST_FAILED'
+    throw new ApiError(code, ERROR_MESSAGES[code] ?? data.error?.message ?? 'Request failed. Please retry.', response.status)
+  }
+  return response.blob()
+}
 export function readSession(): Session | null {
   try { const session = JSON.parse(sessionStorage.getItem('vouch') ?? 'null'); return session?.token && session?.user?.id ? session : null } catch { return null }
-}
-export function legacyUrl(tab = 'criteria', caseId = '') {
-  const query = new URLSearchParams({tab})
-  if (caseId) query.set('case', caseId)
-  return '/legacy?' + query.toString()
 }
 export const roleName = (role: string) => ({recruiter:'Recruiter',hiring_manager:'Hiring manager',auditor:'Auditor',hr_admin:'HR admin'}[role] ?? role)
 export const humanize = (value: string) => value.toLowerCase().replaceAll('_', ' ').replace(/^./, c => c.toUpperCase())

@@ -58,6 +58,7 @@ def test_membership_scopes_every_projection(client):
     assert member["kpis"]["cases"] == 1
     assert member["kpis"]["cvs_analysed"] == member["kpis"]["gateway_refusals"] == 0
     assert member["alerts_by_type"] == []
+    assert sum(member["activity_trends"]["security_alerts"]) == 0
     assert all(e["case_id"] == "CASE-DEMO" for e in member["recent_events"])
     assert get(client, suffix="?case_id=SECRET").status_code == 404
     for uid in ("U-ADM", "U-AUD"):
@@ -65,6 +66,7 @@ def test_membership_scopes_every_projection(client):
         assert elevated["kpis"]["cases"] == 2
         assert elevated["kpis"]["cvs_analysed"] == elevated["kpis"]["gateway_refusals"] == 1
         assert elevated["alerts_by_type"][0]["count"] == 1
+        assert sum(elevated["activity_trends"]["security_alerts"]) == 1
         assert get(client, uid, "?case_id=SECRET").status_code == 200
     db.q("DELETE FROM case_members WHERE user_id='U-MGR'")
     manager = get(client, "U-MGR").json()

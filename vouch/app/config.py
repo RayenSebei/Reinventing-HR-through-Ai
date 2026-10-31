@@ -22,6 +22,7 @@ APPROVAL_MINUTES = int(os.environ.get("VOUCH_APPROVAL_MINUTES", "15"))
 
 # Test mode enables /api/_test/* (fixture reset). Never enable in production.
 TEST_MODE = os.environ.get("VOUCH_TEST_MODE") == "1"
+DEMO_MODE = os.environ.get("VOUCH_DEMO_MODE") == "1"
 
 # AI model: "lexicon" (no AI, deterministic), "openai" (any OpenAI-compatible
 # chat-completions endpoint), "ollama" (local), "replay" (recorded answers),

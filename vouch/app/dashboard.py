@@ -6,7 +6,7 @@ Counts are aggregates over all permitted rows, independent of API page sizes.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from . import config, db
 from .security import READ_ALL_ROLES, require_case_read
@@ -131,6 +131,27 @@ def overview(user: dict, case_id: str | None = None) -> dict:
     analysed = count("documents", "t.status='ANALYSED'")
     sent = count("outbox")
     deliveries = query("SELECT o.delivery_status,COUNT(*) n FROM outbox o JOIN scoped s ON s.id=o.case_id GROUP BY o.delivery_status")
+    trend_days = [(datetime.now(timezone.utc).date() - timedelta(days=day)).isoformat() for day in range(6, -1, -1)]
+    trends = {key: {day: 0 for day in trend_days} for key in
+              ("cvs_analysed", "security_alerts", "approval_activity", "gateway_sent")}
+    for row in query("SELECT date(d.created_at) day,COUNT(*) n FROM documents d JOIN scoped s ON s.id=d.case_id "
+                     "WHERE date(d.created_at)>=date('now','-6 day') AND d.status='ANALYSED' GROUP BY date(d.created_at)"):
+        if row["day"] in trends["cvs_analysed"]:
+            trends["cvs_analysed"][row["day"]] = row["n"]
+    for row in query("SELECT date(d.created_at) day,COUNT(*) n FROM findings f JOIN documents d ON d.id=f.document_id "
+                     "JOIN scoped s ON s.id=d.case_id WHERE date(d.created_at)>=date('now','-6 day') "
+                     "AND f.type!='MODEL_FALLBACK' GROUP BY date(d.created_at)"):
+        if row["day"] in trends["security_alerts"]:
+            trends["security_alerts"][row["day"]] = row["n"]
+    for row in query("SELECT date(l.ts) day,COUNT(*) n FROM ledger l WHERE "
+                     f"{ledger_scope} AND l.type IN ('PROPOSAL_CREATED','APPROVED','REJECTED') "
+                     "AND date(l.ts)>=date('now','-6 day') GROUP BY date(l.ts)"):
+        if row["day"] in trends["approval_activity"]:
+            trends["approval_activity"][row["day"]] = row["n"]
+    for row in query("SELECT date(o.created_at) day,COUNT(*) n FROM outbox o JOIN scoped s ON s.id=o.case_id "
+                     "WHERE date(o.created_at)>=date('now','-6 day') GROUP BY date(o.created_at)"):
+        if row["day"] in trends["gateway_sent"]:
+            trends["gateway_sent"][row["day"]] = row["n"]
     return {
         "generated_at": now, "scope": {"case_id": case_id, "all_accessible": case_id is None},
         "kpis": {"cases": len(case_rows), "cvs_analysed": analysed,
@@ -145,6 +166,7 @@ def overview(user: dict, case_id: str | None = None) -> dict:
         "alerts_by_type": sorted(by_type.values(), key=lambda row: (-row["count"], row["type"])),
         "alerts_by_severity": by_severity, "proposals_by_status": statuses,
         "delivery_by_status": {row["delivery_status"]: row["n"] for row in deliveries},
+        "activity_trends": {key: [days[day] for day in trend_days] for key, days in trends.items()},
         "recent_events": [dict(row) for row in events], "attention": attention[:12], "attention_total": len(attention),
         "cases": [{"id": row["id"], "title": row["title"], "candidate_count": row["candidate_count"]} for row in case_rows],
         "assurance": assurance_summary(),
