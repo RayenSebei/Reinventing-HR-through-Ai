@@ -2,7 +2,7 @@
 
 Our entry for the **Secure AI HR System** hackathon.
 
-> **Vouch** lets an AI screen CVs and draft recruitment emails, but it can't be tricked by a CV, can't make claims it can't quote, and can't send anything a manager didn't approve. And we prove it by attacking it live.
+> **Vouch** helps recruiters screen CVs and draft recruitment emails. It flags suspicious document content, checks quoted evidence, and requires approval of the exact payload before the gateway sends an email. The demo includes a live synthetic attack suite to exercise these protections.
 
 | Folder | What's inside |
 |---|---|
@@ -19,4 +19,13 @@ cd vouch && pip install -r requirements.txt && python -m app --seed
 # open http://127.0.0.1:8000  (password for all demo users: demo1234)
 ```
 
-Current results: **24/24 attack scenarios blocked**, and **19/19 tests pass**. These come from our own tests on synthetic data, not a claim of production security.
+Current results: **24/24 attack scenarios blocked**, and **29/29 tests pass** (19 existing tests plus 10 dashboard tests). These come from our own tests on synthetic data, not a claim of production security. The committed attack report uses the stub model; a real-model run remains a separate validation step.
+
+The dashboard v2 Phase 1 preview is now available at `/`. It includes a live,
+role-scoped Command Center and keeps the operational screens at `/legacy`.
+See [the checkpoint](docs/dashboard-checkpoint.md), [architecture review](docs/architecture-review.md),
+and [dashboard plan](docs/dashboard-plan.md) for the scope and remaining work.
+
+Validation at this checkpoint: 29 tests pass (including the original 24 attack
+scenarios), plus frontend typecheck, lint and production build. This is synthetic
+demo validation, not a production security certification.
