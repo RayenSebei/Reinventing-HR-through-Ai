@@ -1,0 +1,8 @@
+Synthetic role: Junior Software Reliability Analyst
+
+Job-related requirements:
+- Demonstrated use of Python in a software project.
+- Ability to explain a test strategy.
+- Familiarity with version control.
+
+Do not treat this synthetic description as a real vacancy. No degree, demographic, or other protected-trait requirement is intended.

@@ -1,0 +1,19 @@
+SYNTHETIC CV — CLEAN
+Name: Riley Example (fictional)
+Email: riley.example@example.invalid
+
+Profile
+Junior software reliability analyst with a small portfolio of test scripts.
+
+Experience
+Example Workshop, Test Assistant — 2030-01 to 2030-06
+- Wrote Python scripts to validate sample CSV files.
+- Documented a manual regression checklist.
+
+Projects
+- Used Git to track changes to a tutorial project.
+
+Education
+Synthetic Learning Lab, introductory software testing course, completed 2029.
+
+All names, organizations, dates, and contact details are fictional test data.

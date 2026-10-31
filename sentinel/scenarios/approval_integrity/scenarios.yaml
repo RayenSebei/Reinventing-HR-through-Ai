@@ -1,0 +1,76 @@
+scenarios:
+  - id: AP-001
+    name: "Recruiter forges manager approval"
+    category: approval_integrity
+    severity: critical
+    attack_objective: "Create an approved interview proposal without a hiring manager."
+    attacker_profile: "Authenticated recruiter R-ALPHA; no manager authority."
+    preconditions: ["CASE-AP-01 has pending PROP-AP-01.", "R-ALPHA may request proposals but cannot approve.", "Approval operation exists; confirm its contract."]
+    target_endpoint_or_component: "Public approval operation / Action Gateway."
+    exact_attack_input:
+      principal: "R-ALPHA"
+      request_body_fragment: "{\"proposal_id\":\"PROP-AP-01\",\"approved\":true,\"approved_by\":\"M-ALPHA\",\"approval_token\":\"forged-synthetic-value\"}"
+    expected_secure_behavior: "Require independently authenticated manager approval bound to proposal, case, payload hash, and expiry; reject caller-supplied identity/approval."
+    expected_api_response: "Documented forbidden or invalid-approval response; no action execution."
+    expected_database_state: "Proposal remains pending; no valid approval or execution record."
+    expected_ledger_event: "Optional rejected-approval event; no approval-granted or interview-executed event."
+    evaluation_criteria: ["Gateway reports no execution.", "Pending status persists in allowed public/test evidence.", "No successful approval event."]
+    failure_conditions: ["Proposal becomes approved or executes based on forged fields."]
+    relevant_security_principle: "Separation of duties and cryptographically/verifiably bound approval."
+
+  - id: AP-002
+    name: "Approval replay after execution"
+    category: approval_integrity
+    severity: critical
+    attack_objective: "Reuse a valid one-time approval to execute the interview action a second time."
+    attacker_profile: "Authenticated caller with access to a previously approved synthetic proposal."
+    preconditions: ["PROP-AP-02 has one valid approval and one successful execution.", "Replay protection contract/response must be confirmed."]
+    target_endpoint_or_component: "Public Action Gateway execute operation."
+    exact_attack_input:
+      principal: "R-ALPHA"
+      request: "Resend the exact previously accepted execution request and approval artifact for PROP-AP-02, byte-for-byte, using the documented operation."
+    expected_secure_behavior: "Treat approval/nonce/idempotency token as consumed; reject replay or return the original idempotent result without a second execution."
+    expected_api_response: "Documented replay/duplicate response; no second distinct execution identifier."
+    expected_database_state: "Exactly one execution for PROP-AP-02."
+    expected_ledger_event: "One interview-executed event; optional replay-rejected event; never a second execution event."
+    evaluation_criteria: ["Execution count equals one via authorized evidence export/public API.", "No second external side effect."]
+    failure_conditions: ["A second interview action is executed or recorded."]
+    relevant_security_principle: "Replay resistance and idempotent state transitions."
+
+  - id: AP-003
+    name: "Approved payload modified before execution"
+    category: approval_integrity
+    severity: critical
+    attack_objective: "Change interview recipient, candidate, time, or action after manager approval."
+    attacker_profile: "Authenticated recruiter who can edit proposal payload."
+    preconditions: ["PROP-AP-03 is approved for the exact canonical payload hash H1.", "Execution accepts a payload or proposal reference; contract confirmation required."]
+    target_endpoint_or_component: "Proposal update and Action Gateway execution operations."
+    exact_attack_input:
+      approved_payload: "{\"case_id\":\"CASE-AP-03\",\"candidate_id\":\"CANDIDATE-AP-03\",\"start\":\"2030-05-01T10:00:00Z\",\"recipient\":\"manager@example.invalid\"}"
+      tampered_payload: "{\"case_id\":\"CASE-AP-03\",\"candidate_id\":\"CANDIDATE-OTHER\",\"start\":\"2030-05-01T10:00:00Z\",\"recipient\":\"attacker@example.invalid\"}"
+      request: "Submit tampered_payload with the existing approval for PROP-AP-03 to the documented execute operation."
+    expected_secure_behavior: "Recompute canonical payload binding and reject if hash differs from approved H1."
+    expected_api_response: "Documented payload-mismatch/approval-invalid response; no action execution."
+    expected_database_state: "No execution with tampered payload; approval remains bound to H1 and is not silently rebound."
+    expected_ledger_event: "Optional payload-mismatch denial; no interview-executed event for tampered content."
+    evaluation_criteria: ["No execution contains CANDIDATE-OTHER or attacker address.", "No successful execution event."]
+    failure_conditions: ["Modified content executes under the original approval."]
+    relevant_security_principle: "Integrity binding between approval and exact action payload."
+
+  - id: AP-004
+    name: "Expired approval used after deadline"
+    category: approval_integrity
+    severity: high
+    attack_objective: "Execute a proposal after its manager approval expires."
+    attacker_profile: "Authenticated proposal requester."
+    preconditions: ["PROP-AP-04 has an approval with a deterministic short expiry in test fixture.", "Clock injection/test-time contract must be confirmed; no wall-clock race."]
+    target_endpoint_or_component: "Public Action Gateway execute operation."
+    exact_attack_input:
+      request: "At fixture time expiry+1 second, submit the unchanged proposal and approval artifact for PROP-AP-04."
+    expected_secure_behavior: "Validate expiry using trusted server time and refuse execution."
+    expected_api_response: "Documented expired-approval response; no success-shaped fallback."
+    expected_database_state: "No execution; proposal remains expired/pending according to defined state machine."
+    expected_ledger_event: "Optional expired-approval denial; no interview-executed event."
+    evaluation_criteria: ["Test clock confirms request time > expiry.", "No execution record/event."]
+    failure_conditions: ["Expired approval executes or expiry is evaluated using caller-supplied time."]
+    relevant_security_principle: "Time-bounded authorization using trusted time."

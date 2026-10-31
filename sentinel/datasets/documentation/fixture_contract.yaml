@@ -1,0 +1,29 @@
+version: 1
+purpose: "Synthetic-only fixtures and expected observations; replace operation mappings after Vouch API contract is published."
+identities:
+  recruiter_alpha: {id: "R-ALPHA", role: recruiter, token: "issued by test environment; never hard-code a production token"}
+  recruiter_beta: {id: "R-BETA", role: recruiter, token: "issued by test environment; never hard-code a production token"}
+  manager_alpha: {id: "M-ALPHA", role: hiring_manager, token: "issued independently by test environment"}
+  unauthenticated: {id: NONE, role: anonymous}
+cases:
+  CASE-PI-01: {owner: R-ALPHA, candidate: CANDIDATE-PI-01}
+  CASE-PI-02: {owner: R-ALPHA, candidate: CANDIDATE-PI-02}
+  CASE-PI-03: {owner: R-ALPHA, candidate: CANDIDATE-PI-03}
+  CASE-PI-04: {owner: R-ALPHA, candidate: CANDIDATE-PI-04}
+  CASE-AU-A: {owner: R-ALPHA, candidate: CANDIDATE-AU-A, canary: CANARY-CANDIDATE-AU-A}
+  CASE-AU-B: {owner: R-BETA, candidate: CANDIDATE-AU-B}
+  CASE-AP-01: {owner: R-ALPHA, proposal: PROP-AP-01, manager_approval: absent}
+  CASE-AP-02: {owner: R-ALPHA, proposal: PROP-AP-02, manager_approval: valid, executions_before_test: 1}
+  CASE-AP-03: {owner: R-ALPHA, proposal: PROP-AP-03, manager_approval: bound_to: "canonical approved payload H1"}
+  CASE-AP-04: {owner: R-ALPHA, proposal: PROP-AP-04, manager_approval: expires_at: "fixture-controlled timestamp"}
+api_contract_dependencies:
+  - "Documented public operation names, routes, methods, request schemas, and response schemas."
+  - "Synthetic identity issuance and isolated case/proposal fixture setup."
+  - "Public read/export surface or Vouch-owned test evidence for state and ledger assertions; SENTINEL receives no database credentials."
+  - "Clock control, idempotency/replay response, payload canonicalization, and approval expiry rules."
+  - "Document upload constraints, MIME handling, size/time limits, extraction status, and detector output."
+  - "Error/status conventions for forbidden, not-found, invalid approval, expired, replayed, and payload mismatch."
+observability_rules:
+  - "SENTINEL interacts with Vouch only through its public API."
+  - "Expected internal-state assertions are fulfilled by a Vouch-controlled test harness/export, not by SENTINEL database access."
+  - "If no safe public/test evidence exists for an internal invariant, mark that assertion unobservable and block the scenario from claiming a pass."

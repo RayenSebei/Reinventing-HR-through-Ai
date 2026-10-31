@@ -1,0 +1,77 @@
+scenarios:
+  - id: AU-001
+    name: "Cross-case candidate record access"
+    category: authentication_authorization
+    severity: critical
+    attack_objective: "Read a candidate record from a case outside the attacker's authorization."
+    attacker_profile: "Authenticated recruiter R-BETA assigned only to CASE-AU-B."
+    preconditions: ["CASE-AU-A belongs to R-ALPHA and contains canary CANARY-CANDIDATE-AU-A.", "R-BETA token is valid and cannot access CASE-AU-A."]
+    target_endpoint_or_component: "Public candidate/case read operation; identifier placement and route require API-contract confirmation."
+    exact_attack_input:
+      principal: "R-BETA"
+      request: "Invoke the documented read operation using CASE-AU-A and its synthetic candidate identifier, substituting them into documented identifiers/parameters."
+    expected_secure_behavior: "Enforce object-level authorization on every read; do not reveal whether the inaccessible record exists if the API policy conceals existence."
+    expected_api_response: "Documented forbidden or not-found response; no record fields or canary."
+    expected_database_state: "No mutation; no unauthorized data returned. Validate access telemetry via Vouch-owned test evidence, never SENTINEL DB access."
+    expected_ledger_event: "Optional denied-access security event with actor/resource identifiers; no successful-read event."
+    evaluation_criteria: ["Response is contractually denied.", "Canary absent from body, headers, errors, and subsequent pages."]
+    failure_conditions: ["Protected data is returned or response differs from the documented denial policy."]
+    relevant_security_principle: "Deny by default and object-level authorization."
+
+  - id: AU-002
+    name: "Unauthenticated protected operation"
+    category: authentication_authorization
+    severity: high
+    attack_objective: "Access a protected case or dossier without a valid identity."
+    attacker_profile: "Unauthenticated external caller."
+    preconditions: ["A synthetic protected case exists.", "No session/token is supplied."]
+    target_endpoint_or_component: "Any documented protected case read or dossier operation; route requires confirmation."
+    exact_attack_input:
+      principal: "NONE"
+      request: "Invoke the documented protected read operation with a valid synthetic case identifier and no Authorization credential."
+    expected_secure_behavior: "Require authentication before returning protected data."
+    expected_api_response: "Documented authentication-required response (normally HTTP 401); response contains no case or candidate data."
+    expected_database_state: "No case mutation and no dossier generation."
+    expected_ledger_event: "Optional unauthenticated-denial telemetry; no successful access event."
+    evaluation_criteria: ["Response matches API contract's unauthenticated result.", "Seeded canary absent.", "No generation/action side effect."]
+    failure_conditions: ["Any protected content or success response is returned."]
+    relevant_security_principle: "Authentication before access."
+
+  - id: AU-003
+    name: "Role escalation through recruiter-supplied role"
+    category: authentication_authorization
+    severity: critical
+    attack_objective: "Elevate a recruiter to hiring-manager approval authority by changing request data."
+    attacker_profile: "Authenticated recruiter R-ALPHA without manager privileges."
+    preconditions: ["CASE-AU-03 exists; R-ALPHA lacks manager role.", "Approval operation and role model require contract confirmation."]
+    target_endpoint_or_component: "Public approval operation and identity/role management surface; route and accepted fields require confirmation."
+    exact_attack_input:
+      principal: "R-ALPHA"
+      request_body_fragment: "{\"case_id\":\"CASE-AU-03\",\"proposal_id\":\"PROP-AU-03\",\"role\":\"hiring_manager\",\"approved\":true}"
+    expected_secure_behavior: "Derive role and actor identity from trusted authentication context, not client-controlled fields; deny approval by recruiter."
+    expected_api_response: "Documented forbidden/validation response; approval must not be reported as successful."
+    expected_database_state: "Proposal remains pending; no approval record is created."
+    expected_ledger_event: "Optional denied approval attempt; no approval-granted event."
+    evaluation_criteria: ["Approval state remains pending in authorized public read/test evidence.", "Ledger has no successful approval event for R-ALPHA."]
+    failure_conditions: ["Client field grants role or approval state changes."]
+    relevant_security_principle: "Server-side authorization and trusted principal binding."
+
+  - id: AU-004
+    name: "Cross-tenant pagination or filter bypass"
+    category: authentication_authorization
+    severity: high
+    attack_objective: "Leak another recruiter's cases by manipulating list filters, cursor, or page size."
+    attacker_profile: "Authenticated R-BETA with access only to CASE-AU-B."
+    preconditions: ["At least one R-ALPHA-only case with canary exists.", "Public list operation supports filters or pagination; confirm contract."]
+    target_endpoint_or_component: "Public case/candidate list operation; filter, cursor, and page-size fields require confirmation."
+    exact_attack_input:
+      principal: "R-BETA"
+      request_body_fragment: "{\"owner_id\":\"R-ALPHA\",\"limit\":10000,\"cursor\":\"<documented-or-captured-cursor>\"}"
+      request: "Submit exact fragment as documented query/body parameters; omit unsupported fields rather than guessing."
+    expected_secure_behavior: "Apply authorization before filtering/pagination; reject invalid bounds and never expand scope from client filters."
+    expected_api_response: "Only R-BETA-authorized rows, or documented validation error; no R-ALPHA canary."
+    expected_database_state: "Read-only; no unauthorized access mutation."
+    expected_ledger_event: "Optional access telemetry; no successful cross-case read."
+    evaluation_criteria: ["Every returned identifier belongs to the R-BETA fixture allowlist.", "No canary leak across all pages."]
+    failure_conditions: ["Foreign case appears in any page, count, error, or metadata."]
+    relevant_security_principle: "Authorization must constrain queries, including pagination and aggregates."

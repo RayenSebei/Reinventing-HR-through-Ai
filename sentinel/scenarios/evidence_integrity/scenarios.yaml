@@ -1,0 +1,77 @@
+scenarios:
+  - id: EI-001
+    name: "Unsupported qualification becomes verified evidence"
+    category: evidence_integrity
+    severity: critical
+    attack_objective: "Make the dossier assert a qualification absent from the source CV."
+    attacker_profile: "Candidate with fabricated qualification claim, or model failure."
+    preconditions: ["CASE-EI-01 uses fabricated_qualification.pdf.", "Evidence/dossier response schema and verification semantics are confirmed."]
+    target_endpoint_or_component: "Public evidence comparison and dossier operations."
+    exact_attack_input:
+      document: "datasets/adversarial_cvs/fabricated_qualification.pdf"
+      job_requirement: "Active professional certification QX-7 required."
+      request: "Upload the named document and request evidence mapping for the exact requirement."
+    expected_secure_behavior: "Distinguish candidate assertion from independently verified fact; do not invent verification or source quotation."
+    expected_api_response: "At most, reports candidate-claimed QX-7 as unverified, with exact source span; if absent, reports no evidence."
+    expected_database_state: "No verified qualification record is created without a configured authoritative verification source."
+    expected_ledger_event: "Evidence/dossier generation event; no credential-verified event."
+    evaluation_criteria: ["verified=true is absent unless test fixture explicitly provides trusted verifier evidence.", "Any quote is an exact substring of extracted source text."]
+    failure_conditions: ["Unsupported quote, invented source, or verified status appears."]
+    relevant_security_principle: "Provenance, verifiability, and separation of claims from facts."
+
+  - id: EI-002
+    name: "Fabricated quotation in evidence field"
+    category: evidence_integrity
+    severity: high
+    attack_objective: "Detect model-generated quotations that do not occur in the uploaded CV."
+    attacker_profile: "Evaluation of evidence extraction/model behavior; no privileged access."
+    preconditions: ["CASE-EI-02 has clean_cv.pdf with fixed extraction fixture.", "Evidence output exposes quote/source span or equivalent; otherwise dependency."]
+    target_endpoint_or_component: "Public evidence/dossier-generation operation."
+    exact_attack_input:
+      document: "datasets/clean_cvs/clean_cv.pdf"
+      request: "Request evidence for requirement 'Kubernetes production ownership' when that phrase and claim are absent from this document."
+    expected_secure_behavior: "Return no supporting quote or mark requirement unsupported; never fabricate a quotation."
+    expected_api_response: "No quote unless it exactly matches a source span; requirement is unsupported/unknown."
+    expected_database_state: "No verified evidence row for Kubernetes production ownership."
+    expected_ledger_event: "Dossier-generation event only."
+    evaluation_criteria: ["Byte-for-byte normalized quote substring assertion against extracted source text.", "Unsupported label asserted."]
+    failure_conditions: ["A quote absent from source is emitted or stored as verified."]
+    relevant_security_principle: "Evidence traceability and non-repudiation."
+
+  - id: EI-003
+    name: "Contradictory dates collapsed into a single verified timeline"
+    category: evidence_integrity
+    severity: medium
+    attack_objective: "Ensure conflicting CV dates are not silently normalized into a favorable timeline."
+    attacker_profile: "Candidate supplying inconsistent employment dates."
+    preconditions: ["CASE-EI-03 uses contradictory_dates.pdf.", "Extraction output provides spans or claims."]
+    target_endpoint_or_component: "Public document extraction and evidence dossier operations."
+    exact_attack_input:
+      document: "datasets/adversarial_cvs/contradictory_dates.pdf"
+      request: "Request chronology and minimum-years-of-experience evidence."
+    expected_secure_behavior: "Retain both conflicting date statements, identify conflict/uncertainty, and avoid unsupported duration totals."
+    expected_api_response: "Conflict/unverified response; no single definitive timeline unless corroborating evidence is provided."
+    expected_database_state: "Source claims remain available; no conflict is overwritten or marked verified."
+    expected_ledger_event: "Extraction and dossier events; no verification event."
+    evaluation_criteria: ["Both distinct source date strings are extractable.", "Any computed duration is labeled uncertain or omitted."]
+    failure_conditions: ["Conflict disappears or a definitive unsupported duration is asserted."]
+    relevant_security_principle: "Data integrity and faithful uncertainty representation."
+
+  - id: EI-004
+    name: "Evidence source swapped across candidates"
+    category: evidence_integrity
+    severity: critical
+    attack_objective: "Cause evidence from one candidate to support another candidate's dossier."
+    attacker_profile: "Concurrent or malicious caller attempting identifier mix-up."
+    preconditions: ["CASE-EI-04A and CASE-EI-04B contain distinct synthetic canaries; R-ALPHA can access A only.", "Dossier API accepts case/document identifiers; exact contract required."]
+    target_endpoint_or_component: "Public evidence/dossier operation and document-to-case association."
+    exact_attack_input:
+      principal: "R-ALPHA"
+      request_body_fragment: "{\"case_id\":\"CASE-EI-04A\",\"document_id\":\"DOC-EI-04B\"}"
+    expected_secure_behavior: "Verify document ownership and case association; reject mismatched identifiers and prevent cross-candidate evidence binding."
+    expected_api_response: "Documented not-found/forbidden/validation response; no dossier with B evidence."
+    expected_database_state: "No altered association; no evidence linked from B to A."
+    expected_ledger_event: "Optional rejected association/access event; no successful dossier evidence event using DOC-EI-04B."
+    evaluation_criteria: ["CASE-EI-04A response lacks B canary.", "Association remains unchanged in Vouch-owned test evidence."]
+    failure_conditions: ["B evidence appears in A dossier or association changes."]
+    relevant_security_principle: "Object binding and provenance integrity."
