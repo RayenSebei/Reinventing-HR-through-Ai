@@ -1,0 +1,169 @@
+{
+  "title": "Backend Developer (Python)",
+  "description": "Fictional job offer for the demo. Tunis office, hybrid. Build and maintain REST APIs for an HR SaaS product.",
+  "requirements": [
+    {
+      "id": "R1",
+      "label": "Backend development in Python",
+      "must_have": true,
+      "label_i18n": {
+        "fr": "développement backend en Python",
+        "ar": "تطوير الواجهات الخلفية بلغة Python"
+      },
+      "keywords": [
+        "python",
+        "django",
+        "fastapi",
+        "flask",
+        "backend",
+        "back-end"
+      ]
+    },
+    {
+      "id": "R2",
+      "label": "Designing and building REST APIs",
+      "must_have": true,
+      "label_i18n": {
+        "fr": "conception d'API REST",
+        "ar": "تصميم واجهات REST API"
+      },
+      "keywords": [
+        "rest",
+        "api",
+        "apis",
+        "endpoint",
+        "endpoints",
+        "openapi",
+        "swagger"
+      ]
+    },
+    {
+      "id": "R3",
+      "label": "Relational databases and SQL",
+      "must_have": true,
+      "label_i18n": {
+        "fr": "bases de données relationnelles et SQL",
+        "ar": "قواعد البيانات العلائقية و SQL"
+      },
+      "keywords": [
+        "sql",
+        "postgresql",
+        "postgres",
+        "mysql",
+        "sqlite",
+        "base de données",
+        "bases de données",
+        "bdd",
+        "database",
+        "databases",
+        "قاعدة بيانات",
+        "قواعد البيانات"
+      ]
+    },
+    {
+      "id": "R4",
+      "label": "Docker and containerised deployment",
+      "must_have": false,
+      "label_i18n": {
+        "fr": "Docker et déploiement en conteneurs",
+        "ar": "Docker والنشر عبر الحاويات"
+      },
+      "keywords": [
+        "docker",
+        "docker-compose",
+        "container",
+        "containers",
+        "conteneur",
+        "conteneurs",
+        "kubernetes",
+        "k8s"
+      ]
+    },
+    {
+      "id": "R5",
+      "label": "Git and team code review",
+      "must_have": false,
+      "label_i18n": {
+        "fr": "Git et revue de code en équipe",
+        "ar": "Git ومراجعة الشيفرة ضمن فريق"
+      },
+      "keywords": [
+        "git",
+        "github",
+        "gitlab",
+        "pull request",
+        "merge request",
+        "code review",
+        "revue de code"
+      ]
+    },
+    {
+      "id": "R6",
+      "label": "Automated testing",
+      "must_have": false,
+      "label_i18n": {
+        "fr": "tests automatisés",
+        "ar": "الاختبارات الآلية"
+      },
+      "keywords": [
+        "pytest",
+        "unittest",
+        "unit test",
+        "unit tests",
+        "tests unitaires",
+        "test unitaire",
+        "tdd",
+        "integration tests",
+        "tests d'intégration",
+        "اختبارات"
+      ]
+    }
+  ],
+  "core_questions": [
+    {
+      "id": "Q1",
+      "requirement_ids": [
+        "R1",
+        "R2"
+      ],
+      "text": {
+        "en": "Tell me about a backend project you built in Python. What did the API do, and what part did you write yourself?",
+        "fr": "Parlez-moi d'un projet backend que vous avez réalisé en Python. Que faisait l'API, et quelle partie avez-vous écrite vous-même ?",
+        "ar": "حدثني عن مشروع خلفي (backend) أنجزته بلغة Python. ماذا كانت تفعل الـ API، وما الجزء الذي كتبته بنفسك؟"
+      }
+    },
+    {
+      "id": "Q2",
+      "requirement_ids": [
+        "R3"
+      ],
+      "text": {
+        "en": "How did you design or query the database in one of your projects? Give an example of a table or a query you improved.",
+        "fr": "Comment avez-vous conçu ou interrogé la base de données dans un de vos projets ? Donnez un exemple de table ou de requête que vous avez améliorée.",
+        "ar": "كيف صممت قاعدة البيانات أو استعلمت منها في أحد مشاريعك؟ أعط مثالا عن جدول أو استعلام قمت بتحسينه."
+      }
+    },
+    {
+      "id": "Q3",
+      "requirement_ids": [
+        "R5"
+      ],
+      "text": {
+        "en": "How do you work with other developers on the same code? Tell me about a code review or a disagreement and how it ended.",
+        "fr": "Comment travaillez-vous avec d'autres développeurs sur le même code ? Parlez-moi d'une revue de code ou d'un désaccord et de son issue.",
+        "ar": "كيف تعمل مع مطورين آخرين على نفس الشيفرة؟ حدثني عن مراجعة شيفرة أو خلاف وكيف انتهى."
+      }
+    },
+    {
+      "id": "Q4",
+      "requirement_ids": [],
+      "text": {
+        "en": "Tell me about something technical you had to learn quickly, at school, at work or on your own. How did you learn it?",
+        "fr": "Parlez-moi d'une compétence technique que vous avez dû apprendre rapidement, en études, au travail ou seul(e). Comment l'avez-vous apprise ?",
+        "ar": "حدثني عن مهارة تقنية اضطررت لتعلمها بسرعة، في الدراسة أو العمل أو بمفردك. كيف تعلمتها؟"
+      }
+    }
+  ],
+  "max_gap_questions": 2,
+  "_comment": "Core questions are asked to every candidate. Requirements not covered by a core question (here R4 Docker, R6 testing) get a targeted question only when the CV shows no evidence for them (max_gap_questions)."
+}
