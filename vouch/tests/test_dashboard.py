@@ -8,7 +8,7 @@ os.environ.setdefault("VOUCH_DATA_DIR", tempfile.mkdtemp(prefix="vouch-dashboard
 import pytest
 from starlette.testclient import TestClient
 
-from app import db, dashboard, ledger
+from app import cases, config, db, dashboard, ledger, retention
 from app.canonical import canonical
 from app.main import app
 from app.seed import seed
@@ -58,6 +58,7 @@ def test_membership_scopes_every_projection(client):
     assert member["kpis"]["cases"] == 1
     assert member["kpis"]["cvs_analysed"] == member["kpis"]["gateway_refusals"] == 0
     assert member["alerts_by_type"] == []
+    assert sum(member["activity_trends"]["security_alerts"]) == 0
     assert all(e["case_id"] == "CASE-DEMO" for e in member["recent_events"])
     assert get(client, suffix="?case_id=SECRET").status_code == 404
     for uid in ("U-ADM", "U-AUD"):
@@ -65,6 +66,7 @@ def test_membership_scopes_every_projection(client):
         assert elevated["kpis"]["cases"] == 2
         assert elevated["kpis"]["cvs_analysed"] == elevated["kpis"]["gateway_refusals"] == 1
         assert elevated["alerts_by_type"][0]["count"] == 1
+        assert sum(elevated["activity_trends"]["security_alerts"]) == 1
         assert get(client, uid, "?case_id=SECRET").status_code == 200
     db.q("DELETE FROM case_members WHERE user_id='U-MGR'")
     manager = get(client, "U-MGR").json()
@@ -155,3 +157,93 @@ def test_new_frontend_renders_text_only():
             source = file.read_text(encoding="utf-8")
             assert "dangerouslySetInnerHTML" not in source, file
             assert ".innerHTML" not in source, file
+
+
+def _case_with_criteria(client, title="Privacy case"):
+    response = client.post("/api/cases", headers=auth(),
+                           json={"title": title, "manager_id": "U-MGR"})
+    assert response.status_code == 201
+    case_id = response.json()["id"]
+    response = client.put(f"/api/cases/{case_id}/criteria", headers=auth(),
+                          json={"criteria": [{"label": "Python experience", "weight": 100}]})
+    assert response.status_code == 200
+    assert client.post(f"/api/cases/{case_id}/criteria/confirm", headers=auth(), json={}).status_code == 200
+    return case_id
+
+
+def _upload(client, case_id, filename):
+    repo = Path(__file__).resolve().parents[2]
+    data = (repo / "sentinel_hr" / "fixtures" / filename).read_bytes()
+    return client.post(f"/api/cases/{case_id}/candidates", headers=auth(),
+                       files={"file": (filename, data, "application/pdf")})
+
+
+def test_criteria_lock_duplicate_detection_and_explicit_shortlist(client):
+    case_id = _case_with_criteria(client)
+    first = _upload(client, case_id, "ai004_contact_canary.pdf")
+    second = _upload(client, case_id, "fr_clean.pdf")
+    assert first.status_code == second.status_code == 201
+    cand1, cand2 = first.json()["candidate_id"], second.json()["candidate_id"]
+
+    duplicate = _upload(client, case_id, "ai004_contact_canary.pdf")
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "DUPLICATE_DOCUMENT"
+    assert duplicate.json()["error"]["candidate_id"] == cand1
+
+    locked = client.put(f"/api/cases/{case_id}/criteria", headers=auth(),
+                        json={"criteria": [{"label": "Java", "weight": 100}]})
+    assert locked.status_code == 409 and locked.json()["error"]["code"] == "CRITERIA_LOCKED"
+    assert "display_name" not in client.get(f"/api/candidates/{cand1}", headers=auth()).json()
+    assert all("display_name" not in row for row in
+               client.get(f"/api/cases/{case_id}/candidates", headers=auth()).json())
+
+    ranking = client.post(f"/api/cases/{case_id}/ranking", headers=auth(), json={}).json()
+    proposal = client.post(f"/api/cases/{case_id}/proposals", headers=auth(), json={"candidate_id": cand2})
+    assert proposal.status_code == 409
+    assert proposal.json()["error"]["code"] == "SHORTLIST_NOT_CONFIRMED"
+    shortlisted = client.post(
+        f"/api/cases/{case_id}/ranking/{ranking['version']}/shortlist", headers=auth(),
+        json={"candidate_ids": [cand1]})
+    assert shortlisted.status_code == 200
+    assert client.get(f"/api/candidates/{cand1}", headers=auth()).json()["display_name"] == "Taylor Example (fictional)"
+    assert "display_name" not in client.get(f"/api/candidates/{cand2}", headers=auth()).json()
+    assert client.post(f"/api/cases/{case_id}/proposals", headers=auth(),
+                       json={"candidate_id": cand2}).status_code == 409
+    assert client.post(f"/api/cases/{case_id}/proposals", headers=auth(),
+                       json={"candidate_id": cand1}).status_code == 201
+
+
+def test_candidate_erasure_preserves_ledger_and_retention_purge(client, monkeypatch):
+    case_id = _case_with_criteria(client, "Erasure case")
+    response = _upload(client, case_id, "ai004_contact_canary.pdf")
+    candidate_id = response.json()["candidate_id"]
+    sha = response.json()["document"]["sha256"]
+    original = config.ORIGINALS_DIR / f"{sha}.pdf"
+    assert original.exists()
+    deleted = client.delete(f"/api/candidates/{candidate_id}", headers=auth())
+    assert deleted.status_code == 200 and not original.exists()
+    assert db.one("SELECT 1 FROM candidates WHERE id=?", (candidate_id,)) is None
+    assert any(event["type"] == "DOCUMENT_ERASED" for event in
+               client.get(f"/api/ledger?case_id={case_id}", headers=auth("U-AUD")).json())
+    assert ledger.verify()["ok"]
+
+    retained_case = _case_with_criteria(client, "Retention case")
+    retained = _upload(client, retained_case, "fr_clean.pdf").json()
+    db.q("UPDATE candidates SET created_at='2000-01-01T00:00:00Z' WHERE id=?", (retained["candidate_id"],))
+    result = retention.purge_expired()
+    assert result["deleted"] == 1
+    assert db.one("SELECT 1 FROM candidates WHERE id=?", (retained["candidate_id"],)) is None
+
+
+def test_batch_upload_returns_a_result_for_each_file(client):
+    case_id = _case_with_criteria(client, "Batch upload case")
+    repo = Path(__file__).resolve().parents[2]
+    valid_pdf = (repo / "sentinel_hr" / "fixtures" / "fr_clean.pdf").read_bytes()
+    response = client.post(
+        f"/api/cases/{case_id}/candidates", headers=auth(),
+        files=[("file", ("bad.pdf", b"not a PDF", "application/pdf")),
+               ("file", ("good.pdf", valid_pdf, "application/pdf"))])
+    assert response.status_code == 207
+    results = response.json()
+    assert [result["ok"] for result in results] == [False, True]
+    assert db.one("SELECT COUNT(*) AS n FROM candidates WHERE case_id=?", (case_id,))["n"] == 1

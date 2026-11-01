@@ -8,4 +8,6 @@ vouch/frontend/.vite/
 *.pyc
 .pytest_cache/
 vouch/data/
+vouch/frontend/test-results/
+vouch/frontend/playwright-report/
 sentinel_hr/reports/run-*.json

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SENTINEL HR runner: executes the 24 scenarios in sentinel/scenarios/ against Vouch's
+"""SENTINEL HR runner: executes the 27 scenarios in sentinel/scenarios/ against Vouch's
 PUBLIC API only. No database access. Outcomes follow sentinel/documentation/
 evaluation_methodology.md: PASS / FAIL / BLOCKED / ERROR. Blocked is never a pass.
 
@@ -32,7 +32,7 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 import scenarios_hr  # noqa: E402
 
-REPORTS = HERE / "reports"
+REPORTS = Path(os.environ.get("SENTINEL_REPORT_DIR", HERE / "reports"))
 SEVERITY_ORDER = ["critical", "high", "medium", "low"]
 
 

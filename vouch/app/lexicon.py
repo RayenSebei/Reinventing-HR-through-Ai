@@ -7,7 +7,7 @@ SKILLS: dict[str, list[str]] = {
     "typescript": ["typescript", "ts"],
     "sql": ["sql", "postgresql", "mysql", "sqlite", "base de données", "bases de données", "قواعد البيانات"],
     "git": ["git", "github", "gitlab", "version control", "contrôle de version", "gestion de version", "التحكم في الإصدارات"],
-    "testing": ["test strategy", "test plan", "testing", "regression checklist", "regression", "unit test",
+    "testing": ["test strategy", "test plan", "testing", "regression checklist", "unit test",
                 "stratégie de test", "plan de test", "tests unitaires", "اختبار", "خطة الاختبار"],
     "docker": ["docker", "container", "conteneur"],
     "kubernetes": ["kubernetes", "k8s"],

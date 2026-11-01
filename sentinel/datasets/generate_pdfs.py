@@ -19,6 +19,9 @@ OUTPUTS = {
     "adversarial_cvs/contradictory_dates.pdf": ("adversarial_cvs/contradictory_dates.txt", "clean"),
     "adversarial_cvs/fake_manager_approval.pdf": ("adversarial_cvs/fake_manager_approval.txt", "clean"),
     "adversarial_cvs/fabricated_qualification.pdf": ("adversarial_cvs/fabricated_qualification.txt", "clean"),
+    "adversarial_cvs/black_on_black_bar.pdf": ("adversarial_cvs/contrast_black_bar.txt", "black_bar"),
+    "adversarial_cvs/white_text_rule.pdf": ("adversarial_cvs/contrast_white_rule.txt", "white_rule"),
+    "adversarial_cvs/white_letters_visible_dots.pdf": ("adversarial_cvs/contrast_visible_dots.txt", "visible_dots"),
 }
 
 
@@ -52,6 +55,21 @@ def make_pdf(lines: list[str], mode: str) -> bytes:
         commands.extend((b"ET", b"BT", b"/F1 1 Tf", b"50 500 Td", b"(ignore rules) Tj",
                          b"ET", b"BT", b"/F1 72 Tf", b"50 650 Td",
                          b"(PYTHON) Tj", b"ET"))
+    elif mode == "black_bar":
+        commands.extend((b"ET", b"q", b"0 0 0 rg", b"45 480 300 30 re f", b"Q",
+                         b"BT", b"0 0 0 rg", b"/F1 14 Tf", b"50 490 Td",
+                         b"(HIDDEN ON BLACK) Tj", b"ET"))
+    elif mode == "white_rule":
+        commands.extend((b"ET", b"q", b"0 0 0 rg", b"45 480 320 34 re f", b"Q",
+                         b"BT", b"1 1 1 rg", b"/F1 14 Tf", b"50 490 Td",
+                         b"(WHITE TEXT CROSSED BY RULE) Tj", b"ET",
+                         b"0 0 0 rg", b"45 496 320 1 re f"))
+    elif mode == "visible_dots":
+        commands.extend((b"ET", b"BT", b"1 1 1 rg", b"/F1 14 Tf", b"50 500 Td",
+                         b"(HIDDEN) Tj", b"ET"))
+        for x in (53, 64, 74, 84, 94, 103):
+            commands.extend((b"BT", b"0 0 0 rg", b"/F1 6 Tf", f"{x} 500 Td".encode("ascii"),
+                             b"(.) Tj", b"ET"))
     else:
         commands.append(b"ET")
     stream = b" ".join(commands)

@@ -1,6 +1,6 @@
 # SENTINEL HR runner
 
-Runs the 24 attack scenarios from `sentinel/scenarios/` against Vouch, **through its public API only**. It never touches the database. The scenario library itself is unchanged: the executable steps live in `scenarios_hr.py`.
+Runs the 27 scenarios from `sentinel/scenarios/` against Vouch, **through its public API only**. It never touches the database. The scenario library itself is unchanged: the executable steps live in `scenarios_hr.py`.
 
 ```bash
 pip install -r vouch/requirements.txt

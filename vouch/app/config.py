@@ -22,6 +22,7 @@ APPROVAL_MINUTES = int(os.environ.get("VOUCH_APPROVAL_MINUTES", "15"))
 
 # Test mode enables /api/_test/* (fixture reset). Never enable in production.
 TEST_MODE = os.environ.get("VOUCH_TEST_MODE") == "1"
+DEMO_MODE = os.environ.get("VOUCH_DEMO_MODE") == "1"
 
 # AI model: "lexicon" (no AI, deterministic), "openai" (any OpenAI-compatible
 # chat-completions endpoint), "ollama" (local), "replay" (recorded answers),
@@ -49,3 +50,26 @@ RETENTION_DAYS = int(os.environ.get("VOUCH_RETENTION_DAYS", "180"))
 
 for d in (DATA_DIR, ORIGINALS_DIR, REPLAY_DIR):
     d.mkdir(parents=True, exist_ok=True)
+
+
+def _ledger_key() -> str:
+    key = os.environ.get("VOUCH_LEDGER_KEY")
+    if key:
+        if len(key.encode("utf-8")) < 32:
+            raise RuntimeError("VOUCH_LEDGER_KEY must contain at least 32 bytes.")
+        return key
+    path = DATA_DIR / ".ledger-key"
+    try:
+        key = secrets.token_hex(32)
+        with path.open("x", encoding="ascii") as f:
+            f.write(key)
+        path.chmod(0o600)
+        return key
+    except FileExistsError:
+        key = path.read_text(encoding="ascii").strip()
+        if len(key) < 64:
+            raise RuntimeError("The stored ledger key is invalid.")
+        return key
+
+
+LEDGER_KEY = _ledger_key()
