@@ -20,7 +20,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import cases, config, dashboard, db, gateway, ledger, policy, retention, schemas, testmode, workspace
+from . import cases, config, dashboard, db, gateway, ledger, policy, retention, schemas, scheduling, testmode, workspace
 from .errors import ApiError, invalid, not_found
 from .security import check_password, current_user, hash_password, issue_token, require_role
 
@@ -128,9 +128,19 @@ def users(request: Request):
 @api("GET", "/meta")
 def meta(request: Request):
     current_policy = policy.read()
+    provider_call = config.MODEL_MODE in ("openai", "ollama")
     return ok({"model_mode": config.MODEL_MODE, "test_mode": config.TEST_MODE,
                "demo_mode": config.DEMO_MODE,
                "n8n_delivery": bool(config.N8N_WEBHOOK_URL),
+               "ai_capabilities": {
+                   "mode": config.MODEL_MODE,
+                   "provider_call_attempted_on_cv_upload": provider_call,
+                   "claim_extraction": True,
+                   "fallback_to_word_list": True,
+                   "chat_assistant": False,
+                   "inbox_summarization": False,
+                   "autonomous_actions": False,
+               },
                "approval_minutes": current_policy["approval_ttl_minutes"],
                "data_handling": {
                    "retention_days": config.RETENTION_DAYS,
@@ -248,6 +258,93 @@ async def admin_update_policy(request: Request):
     if not values:
         raise invalid("Set at least one policy field.")
     return ok(await run_in_threadpool(policy.update, values, user["id"]))
+
+
+# --- interviews and follow-up tasks -----------------------------------------
+@api("GET", "/interviews")
+def list_interviews(request: Request):
+    user = current_user(request)
+    no_duplicate_query_keys(request)
+    allowed = {"case_id", "candidate_id", "status", "from_date", "to_date", "limit", "offset"}
+    extra = set(request.query_params) - allowed
+    if extra:
+        raise invalid(f"Unknown query parameter(s): {', '.join(sorted(extra))}.")
+    limit, offset = paging(request, allowed=allowed)
+    return ok(scheduling.list_interviews(
+        user, case_id=request.query_params.get("case_id"), candidate_id=request.query_params.get("candidate_id"),
+        status=request.query_params.get("status"), from_date=request.query_params.get("from_date"),
+        to_date=request.query_params.get("to_date"), limit=limit, offset=offset))
+
+
+@api("POST", "/interviews")
+async def create_interview(request: Request):
+    user = await auth_user(request)
+    body = await body_as(request, schemas.InterviewCreate)
+    return ok(await run_in_threadpool(scheduling.create_interview, user, body), 201)
+
+
+@api("GET", "/interviews/{interview_id}")
+def get_interview(request: Request):
+    user = current_user(request)
+    no_query(request)
+    return ok(scheduling.get_interview(user, request.path_params["interview_id"]))
+
+
+@api("PATCH", "/interviews/{interview_id}")
+async def update_interview(request: Request):
+    user = await auth_user(request)
+    body = await body_as(request, schemas.InterviewUpdate)
+    values = body.model_dump(exclude_unset=True)
+    return ok(await run_in_threadpool(
+        scheduling.update_interview, user, request.path_params["interview_id"], values))
+
+
+@api("DELETE", "/interviews/{interview_id}")
+async def cancel_interview(request: Request):
+    user = await auth_user(request)
+    no_query(request)
+    await body_as(request, schemas.Empty)
+    return ok(await run_in_threadpool(
+        scheduling.update_interview, user, request.path_params["interview_id"], {"status": "cancelled"}))
+
+
+@api("GET", "/follow-ups")
+def list_follow_ups(request: Request):
+    user = current_user(request)
+    no_duplicate_query_keys(request)
+    allowed = {"case_id", "candidate_id", "assigned_to", "status", "priority", "bucket", "limit", "offset"}
+    extra = set(request.query_params) - allowed
+    if extra:
+        raise invalid(f"Unknown query parameter(s): {', '.join(sorted(extra))}.")
+    limit, offset = paging(request, allowed=allowed)
+    return ok(scheduling.list_tasks(
+        user, case_id=request.query_params.get("case_id"), candidate_id=request.query_params.get("candidate_id"),
+        assigned_to=request.query_params.get("assigned_to"), status=request.query_params.get("status"),
+        priority=request.query_params.get("priority"), bucket=request.query_params.get("bucket"),
+        limit=limit, offset=offset))
+
+
+@api("POST", "/follow-ups")
+async def create_follow_up(request: Request):
+    user = await auth_user(request)
+    body = await body_as(request, schemas.FollowUpCreate)
+    return ok(await run_in_threadpool(scheduling.create_task, user, body), 201)
+
+
+@api("GET", "/follow-ups/{task_id}")
+def get_follow_up(request: Request):
+    user = current_user(request)
+    no_query(request)
+    return ok(scheduling.get_task(user, request.path_params["task_id"]))
+
+
+@api("PATCH", "/follow-ups/{task_id}")
+async def update_follow_up(request: Request):
+    user = await auth_user(request)
+    body = await body_as(request, schemas.FollowUpUpdate)
+    values = body.model_dump(exclude_unset=True)
+    return ok(await run_in_threadpool(
+        scheduling.update_task, user, request.path_params["task_id"], values))
 
 
 # --- cases ------------------------------------------------------------------

@@ -1,6 +1,12 @@
 export type User = { id: string; name: string; email: string; role: 'recruiter' | 'hiring_manager' | 'auditor' | 'hr_admin' }
 export type Session = { token: string; user: User }
-export type Meta = { model_mode: string; n8n_delivery: boolean; approval_minutes: number; test_mode: boolean; demo_mode: boolean }
+export type Meta = {
+  model_mode: string; n8n_delivery: boolean; approval_minutes: number; test_mode: boolean; demo_mode: boolean
+  ai_capabilities: {
+    mode: string; provider_call_attempted_on_cv_upload: boolean; claim_extraction: boolean
+    fallback_to_word_list: boolean; chat_assistant: boolean; inbox_summarization: boolean; autonomous_actions: boolean
+  }
+}
 export type Attention = { id: string; kind: string; title: string; case_id?: string; case_title?: string; state?: string; expires_at?: string }
 export type Overview = {
   generated_at: string

@@ -2,9 +2,10 @@
 All candidates and CV fixtures are fictional test data."""
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
 
-from . import cases, config, db, ledger
+from . import cases, config, db, ledger, scheduling, schemas
 from .canonical import canonical
 from .security import hash_password
 
@@ -22,13 +23,13 @@ CRITERIA = [
 ]
 
 DEMO_CVS = [
-    ("ai001_pair_a.pdf", "English candidate A"),
-    ("ai001_pair_b.pdf", "English candidate B"),
-    ("fr_clean.pdf", "French candidate"),
-    ("ar_clean.pdf", "Arabic candidate"),
-    ("mixed_fr_ar_en.pdf", "Multilingual candidate"),
-    ("ei004_case_a.pdf", "English candidate C"),
-    ("ei004_case_b.pdf", "English candidate D"),
+    ("demo_en_software_support.pdf", "English software support"),
+    ("demo_en_quality_assistant.pdf", "English quality assurance"),
+    ("demo_en_data_operations.pdf", "English data operations"),
+    ("demo_fr_quality_analyst.pdf", "French quality analyst"),
+    ("demo_ar_it_support.pdf", "Arabic IT support"),
+    ("demo_mixed_product_qa.pdf", "Multilingual product QA"),
+    ("demo_en_cloud_intern.pdf", "English operations intern"),
     ("metadata_injection.pdf", "Attack CV · metadata"),
     ("fr_injection.pdf", "Attack CV · French"),
     ("ar_injection.pdf", "Attack CV · Arabic"),
@@ -57,11 +58,45 @@ def seed() -> str:
 
 
 def seed_demo() -> str:
-    """Reset and load a complete, multilingual demo using checked-in synthetic PDFs."""
+    """Reset and load synthetic CVs, a sample shortlist, interviews, and reminders."""
     message = seed()
     recruiter = dict(db.one("SELECT * FROM users WHERE id='U-REC'"))
     fixture_dir = config.REPO / "sentinel_hr" / "fixtures"
+    candidates = []
     for filename, _label in DEMO_CVS:
-        cases.upload_cv(recruiter, "CASE-DEMO", filename, (fixture_dir / filename).read_bytes())
-    cases.draft_ranking(recruiter, "CASE-DEMO")
-    return f"{message}; loaded {len(DEMO_CVS)} synthetic CVs (including 3 attack CVs) and a draft ranking."
+        dossier = cases.upload_cv(recruiter, "CASE-DEMO", filename, (fixture_dir / filename).read_bytes())
+        candidates.append(dossier["candidate_id"])
+    ranking = cases.draft_ranking(recruiter, "CASE-DEMO")
+    # This shortlist is preloaded fictional demo state, not a model decision.
+    selected = [candidates[0], candidates[3]]
+    cases.shortlist(recruiter, "CASE-DEMO", ranking["version"],
+                    schemas.ShortlistSet(candidate_ids=selected))
+
+    start = db.utcnow().replace(microsecond=0)
+    first_interview = scheduling.create_interview(recruiter, schemas.InterviewCreate(
+        case_id="CASE-DEMO", candidate_id=selected[0], interviewer_id="U-MGR",
+        interview_type="technical", scheduled_start=(start + timedelta(days=2, hours=10)).isoformat().replace("+00:00", "Z"),
+        duration_minutes=60, timezone="UTC", location="Vouch demo room",
+        preparation_notes="Review the candidate's Python validation and regression-test examples."))
+    second_interview = scheduling.create_interview(recruiter, schemas.InterviewCreate(
+        case_id="CASE-DEMO", candidate_id=selected[1], interviewer_id="U-MGR",
+        interview_type="screening", scheduled_start=(start + timedelta(days=3, hours=10)).isoformat().replace("+00:00", "Z"),
+        duration_minutes=45, timezone="UTC", location="Vouch demo room",
+        preparation_notes="Discuss the candidate's multilingual QA experience."))
+    scheduling.ensure_workflow_task(
+        recruiter, case_id="CASE-DEMO", dedupe_key=f"demo:interview:{first_interview['id']}:confirm",
+        title="Confirm technical interview", task_type="confirm_interview",
+        candidate_id=selected[0], interview_id=first_interview["id"], assigned_to="U-REC",
+        due_at=(start + timedelta(days=1)).isoformat().replace("+00:00", "Z"), priority="high")
+    scheduling.ensure_workflow_task(
+        recruiter, case_id="CASE-DEMO", dedupe_key=f"demo:interview:{second_interview['id']}:feedback",
+        title="Collect interview feedback", task_type="collect_feedback",
+        candidate_id=selected[1], interview_id=second_interview["id"], assigned_to="U-MGR",
+        due_at=(start + timedelta(days=4)).isoformat().replace("+00:00", "Z"), priority="normal")
+    scheduling.ensure_workflow_task(
+        recruiter, case_id="CASE-DEMO", dedupe_key="demo:attack-review",
+        title="Review attack CV findings", task_type="review_cv",
+        candidate_id=candidates[-1], assigned_to="U-REC",
+        due_at=(start + timedelta(days=1, hours=2)).isoformat().replace("+00:00", "Z"), priority="urgent")
+    return (f"{message}; loaded {len(DEMO_CVS)} synthetic CVs (including 3 attack CVs), a preloaded sample "
+            "shortlist, 2 interviews, and 3 follow-up tasks.")

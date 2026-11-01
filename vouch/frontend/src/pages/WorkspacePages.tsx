@@ -6,8 +6,9 @@ import { useFieldArray, useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronRight, CircleCheck, Download, FileUp, Plus, RefreshCw, ShieldCheck, Trash2, Upload, Users } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, CalendarDays, Check, ChevronRight, CircleCheck, Clock3, Download, FileUp, ListTodo, Mail, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2, Upload, Users } from 'lucide-react'
 import { api, apiBlob, ApiError, humanize, type Session } from '@/lib/api'
+import { demoInboxMessages } from '@/lib/demoInbox'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -48,6 +49,18 @@ type Proposal = {
 }
 type CandidatePage = { items: Candidate[]; total: number; limit: number; offset: number }
 type AuditEvent = { seq: number; ts: string; actor: string; type: string; case_id: string | null; subject: string | null; body: Record<string, unknown>; prev_hash: string; hash: string; mac: string }
+type Interview = {
+  id: string; case_id: string; candidate_id: string; interviewer_id: string; interview_type: string
+  scheduled_start: string; duration_minutes: number; timezone: string; location: string
+  status: string; preparation_notes: string; feedback: string; created_at: string; completed_at: string | null
+  candidate_pseudonym?: string; case_title?: string; interviewer_name?: string
+}
+type FollowUpTask = {
+  id: string; case_id: string; title: string; description: string; task_type: string; candidate_id: string | null
+  interview_id: string | null; proposal_id: string | null; assigned_to: string | null; due_at: string | null
+  priority: string; status: string; origin: string; created_at: string; completed_at: string | null
+  candidate_pseudonym?: string; case_title?: string; assignee_name?: string
+}
 
 function PageTitle({ title, description, actions }: { title: string; description: string; actions?: React.ReactNode }) {
   return <div className="page-title"><div><h1>{title}</h1><p>{description}</p></div>{actions && <div className="page-actions">{actions}</div>}</div>
@@ -76,7 +89,8 @@ function useCases(session: Session) {
 type CandidateFilters = { sort?: string; order?: string; offset?: number; findingType?: string; shortlisted?: string }
 
 function useCandidates(session: Session, caseId: string, search = '', limit = 100, filters: CandidateFilters = {}) {
-  const query = new URLSearchParams({ case_id: caseId, limit: String(limit), search })
+  const query = new URLSearchParams({ limit: String(limit), search })
+  if (caseId) query.set('case_id', caseId)
   if (filters.sort) query.set('sort', filters.sort)
   if (filters.order) query.set('order', filters.order)
   if (filters.offset !== undefined) query.set('offset', String(filters.offset))
@@ -85,7 +99,7 @@ function useCandidates(session: Session, caseId: string, search = '', limit = 10
   return useQuery({
     queryKey: ['workspace-candidates', session.user.id, caseId, search, limit, filters],
     queryFn: () => api<CandidatePage>(`/candidates?${query}`, session.token),
-    enabled: !!caseId,
+    enabled: true,
   })
 }
 
@@ -102,7 +116,7 @@ export function CasesPage({ session }: Props) {
     onError: error => toast.error(error instanceof Error ? error.message : 'Could not create case.'),
   })
   return <section>
-    <PageTitle title="Cases" description="Hiring workflows available to your role."/>
+    <PageTitle title="Recruitment" description="Hiring workflows available to your role."/>
     {cases.isPending ? <LoadingRows/> : cases.isError ? <QueryError message={cases.error.message} retry={() => void cases.refetch()}/> :
       <div className="workspace-grid">{cases.data.map(item => <article className="workspace-card case-card" key={item.id}>
         <div className="case-card-icon"><Users size={20}/></div><div><h2><Link to={`/cases/${item.id}`}>{item.title}</Link></h2>
@@ -119,6 +133,86 @@ export function CasesPage({ session }: Props) {
         <Button type="submit" disabled={create.isPending}><Plus size={16}/>Create case</Button>
       </form>
     </section>}
+  </section>
+}
+
+export function CandidatesPage({ session }: Props) {
+  const [search, setSearch] = useState('')
+  const [sort, setSort] = useState('created_at')
+  const [order, setOrder] = useState('desc')
+  const [offset, setOffset] = useState(0)
+  const limit = 25
+  const candidates = useCandidates(session, '', search, limit, { sort, order, offset })
+  const page = candidates.data
+
+  return <section>
+    <PageTitle title="Candidates" description="Candidates across the cases available to your role. Names appear only after a confirmed shortlist."/>
+    <section className="surface workspace-section">
+      <div className="table-controls candidate-controls">
+        <Input aria-label="Search candidates" placeholder="Search pseudonym or candidate ID" value={search}
+          onChange={event => { setSearch(event.target.value); setOffset(0) }}/>
+        <label>Sort by<select value={sort} onChange={event => { setSort(event.target.value); setOffset(0) }}>
+          <option value="created_at">Recently added</option><option value="pseudonym">Pseudonym</option>
+          <option value="finding_count">Findings</option><option value="score">Score</option>
+        </select></label>
+        <Button variant="outline" aria-label={`Sort ${order === 'desc' ? 'ascending' : 'descending'}`}
+          onClick={() => { setOrder(value => value === 'desc' ? 'asc' : 'desc'); setOffset(0) }}>
+          {order === 'desc' ? <ArrowDown size={16}/> : <ArrowUp size={16}/>} {order === 'desc' ? 'Descending' : 'Ascending'}
+        </Button>
+      </div>
+      {candidates.isPending ? <LoadingRows/> : candidates.isError ? <QueryError message={candidates.error.message} retry={() => void candidates.refetch()}/> :
+        page?.items.length ? <>
+          <div className="table-scroll"><Table><TableHeader><TableRow>
+            <TableHead>Candidate</TableHead><TableHead>Case</TableHead><TableHead>Evidence score</TableHead>
+            <TableHead>Findings</TableHead><TableHead>Shortlist</TableHead><TableHead>Added</TableHead>
+          </TableRow></TableHeader><TableBody>{page.items.map(candidate => <TableRow key={candidate.id}>
+            <TableCell><Link to={`/cases/${candidate.case_id}?tab=evidence&candidate=${candidate.id}`} className="table-primary" dir="auto">
+              {candidate.display_name ?? candidate.pseudonym}</Link><small>{candidate.id}</small></TableCell>
+            <TableCell dir="auto">{candidate.case_title}</TableCell>
+            <TableCell>{candidate.score === null ? '—' : `${candidate.score}/100`}</TableCell>
+            <TableCell>{candidate.finding_count ? <span>{candidate.finding_count} <span className="muted">({candidate.finding_types.map(humanize).join(', ')})</span></span> : 'None recorded'}</TableCell>
+            <TableCell><Badge variant="outline" className={candidate.shortlisted ? 'success' : ''}>{candidate.shortlisted ? 'Shortlisted' : 'Not shortlisted'}</Badge></TableCell>
+            <TableCell>{new Date(candidate.created_at).toLocaleDateString()}</TableCell>
+          </TableRow>)}</TableBody></Table></div>
+          <div className="pagination"><span>{page.total ? `${offset + 1}–${Math.min(offset + page.items.length, page.total)} of ${page.total}` : '0 candidates'}</span>
+            <Button variant="outline" size="sm" disabled={offset === 0} onClick={() => setOffset(value => Math.max(0, value - limit))}>Previous</Button>
+            <Button variant="outline" size="sm" disabled={offset + limit >= page.total} onClick={() => setOffset(value => value + limit)}>Next</Button>
+          </div>
+        </> : <NoRows title="No candidates found" text={search ? 'Try another search term.' : 'Upload a CV in a recruitment case to add candidates.'}/>}
+    </section>
+  </section>
+}
+
+export function InboxPage({ session }: Props) {
+  const [selectedId, setSelectedId] = useState(demoInboxMessages[0]?.id ?? '')
+  const [filter, setFilter] = useState('All')
+  const selected = demoInboxMessages.find(message => message.id === selectedId)
+  const visible = demoInboxMessages.filter(message => filter === 'All' || message.category === filter)
+
+  return <section>
+    <PageTitle title="AI Inbox" description="A preview of a future inbox workflow; this workspace is not connected to a mailbox."/>
+    <div className="warning-box inbox-demo-notice" role="note"><Mail size={18}/><span><strong>Demonstration inbox.</strong> All messages and summaries are synthetic. No mailbox, AI model, approval, or delivery is connected for this {humanize(session.user.role)} session.</span></div>
+    <div className="inbox-layout">
+      <section className="surface inbox-list-panel" aria-label="Synthetic messages">
+        <div className="inbox-filters">{['All', ...new Set(demoInboxMessages.map(message => message.category))].map(category =>
+          <Button key={category} size="sm" variant={filter === category ? 'default' : 'outline'} onClick={() => {
+            setFilter(category)
+            const first = category === 'All' ? demoInboxMessages[0] : demoInboxMessages.find(message => message.category === category)
+            if (first) setSelectedId(first.id)
+          }}>{category}</Button>)}</div>
+        {visible.length ? visible.map(message => <button key={message.id} type="button" className={`inbox-message ${selectedId === message.id ? 'selected' : ''}`}
+          onClick={() => setSelectedId(message.id)} aria-pressed={selectedId === message.id}>
+          <span className="inbox-message-heading"><strong dir="auto">{message.sender}</strong><time>{new Date(message.receivedAt).toLocaleDateString()}</time></span>
+          <span className="inbox-message-subject" dir="auto">{message.subject}</span><span className="inbox-message-preview" dir="auto">{message.body}</span>
+        </button>) : <NoRows title="No messages in this filter" text="Select another category to view synthetic examples."/>}
+      </section>
+      {selected ? <section className="surface inbox-detail">
+        <div className="panel-heading"><div><Badge variant="outline">Synthetic message</Badge><h2 dir="auto">{selected.subject}</h2><p dir="auto">{selected.sender} · {selected.category}</p></div><Mail size={21}/></div>
+        <div className="inbox-message-body" dir="auto">{selected.body}</div>
+        <section className="inbox-suggestion"><h3><Sparkles size={16}/> Example summary</h3><p dir="auto">{selected.summary}</p><small>Prewritten sample; no AI request was made.</small></section>
+        <section className="inbox-suggestion"><h3>Example reply</h3><p dir="auto">{selected.reply}</p><small>This text is a demo only. It cannot be approved or sent.</small></section>
+      </section> : <section className="surface inbox-detail"><NoRows title="Select a message" text="Choose one of the synthetic messages to review the demonstration summary."/></section>}
+    </div>
   </section>
 }
 
@@ -725,7 +819,7 @@ export function AdminPage({ session }: Props) {
     onError: error => toast.error(error instanceof Error ? error.message : 'Policy could not be saved.'),
   })
   if (session.user.role !== 'hr_admin') return <QueryError message="Only HR administrators can manage users and policy."/>
-  return <section><PageTitle title="Administration" description="Manage access, approval windows, ranking thresholds, and data handling."/>
+  return <section><PageTitle title="Settings" description="Manage access, approval windows, ranking thresholds, and data handling."/>
     <div className="admin-grid">
       <section className="surface workspace-section"><h2>Users and roles</h2>
         {users.isPending ? <LoadingRows/> : users.isError ? <QueryError message={users.error.message} retry={() => void users.refetch()}/> :
@@ -753,5 +847,235 @@ export function AdminPage({ session }: Props) {
           <div className="data-handling"><p>Automatic retention purge: <strong>{meta.data.data_handling.retention_days} days</strong>.</p><p>{meta.data.data_handling.statement}</p><p>Candidate erasure removes source files and analysis while retaining ledger events.</p></div>}
       </section>
     </div>
+  </section>
+}
+
+function localDateTimeValue(value: Date) {
+  const offset = value.getTimezoneOffset() * 60_000
+  return new Date(value.getTime() - offset).toISOString().slice(0, 16)
+}
+
+function InterviewCard({ interview, caseTitle, candidateLabel, interviewerLabel, session, onUpdate }: {
+  interview: Interview; caseTitle: string; candidateLabel: string; interviewerLabel: string; session: Session
+  onUpdate: (id: string, values: Record<string, unknown>) => void
+}) {
+  const canReview = session.user.role === 'hiring_manager' && interview.interviewer_id === session.user.id
+  const canManage = session.user.role === 'recruiter'
+  return <article className="schedule-card">
+    <div className="schedule-card-heading"><div><span className="schedule-time">{new Date(interview.scheduled_start).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+      <h2 dir="auto">{candidateLabel}</h2><p>{caseTitle} · {humanize(interview.interview_type)} · {interview.duration_minutes} min</p></div>
+      <Badge variant="outline">{humanize(interview.status)}</Badge></div>
+    <div className="schedule-details"><span><Users size={15}/>{interviewerLabel}</span><span><Clock3 size={15}/>{interview.timezone}</span>
+      {interview.location && <span>{interview.location}</span>}</div>
+    {interview.preparation_notes && <p className="schedule-note" dir="auto">{interview.preparation_notes}</p>}
+    {interview.feedback && <div className="schedule-feedback"><strong>Feedback</strong><p dir="auto">{interview.feedback}</p></div>}
+    {(canManage || canReview) && interview.status !== 'completed' && interview.status !== 'cancelled' &&
+      <div className="schedule-actions">
+        {canManage && interview.status === 'scheduled' && <Button variant="outline" onClick={() => onUpdate(interview.id, { status: 'confirmed' })}>Confirm</Button>}
+        {canReview && <form className="inline-feedback" onSubmit={event => {
+          event.preventDefault()
+          const form = new FormData(event.currentTarget)
+          onUpdate(interview.id, { status: 'completed', feedback: String(form.get('feedback') ?? '') })
+        }}><label>Interview feedback<Textarea name="feedback" maxLength={4000} defaultValue={interview.feedback}/></label>
+          <Button type="submit">Complete interview</Button></form>}
+        {canManage && <Button variant="outline" onClick={() => onUpdate(interview.id, { status: 'cancelled' })}>Cancel interview</Button>}
+      </div>}
+  </article>
+}
+
+export function InterviewsPage({ session }: Props) {
+  const client = useQueryClient()
+  const cases = useCases(session)
+  const [caseId, setCaseId] = useState('')
+  const [interviewType, setInterviewType] = useState('screening')
+  const [candidateId, setCandidateId] = useState('')
+  const [interviewerId, setInterviewerId] = useState('')
+  const [scheduledStart, setScheduledStart] = useState(() => localDateTimeValue(new Date(Date.now() + 86_400_000)))
+  const [duration, setDuration] = useState('45')
+  const [timezone, setTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
+  const [location, setLocation] = useState('')
+  const [preparationNotes, setPreparationNotes] = useState('')
+  useEffect(() => {
+    if (!caseId && cases.data?.length) setCaseId(cases.data[0].id)
+  }, [caseId, cases.data])
+  const selectedCase = cases.data?.find(item => item.id === caseId)
+  const candidates = useCandidates(session, caseId, '', 100, { shortlisted: 'true' })
+  const interviews = useQuery({
+    queryKey: ['interviews', session.user.id],
+    queryFn: () => api<{ items: Interview[]; total: number }>('/interviews?limit=100', session.token),
+    enabled: cases.isSuccess,
+  })
+  const create = useMutation({
+    mutationFn: () => api<Interview>('/interviews', session.token, { method: 'POST', body: JSON.stringify({
+      case_id: caseId, candidate_id: candidateId, interviewer_id: interviewerId, interview_type: interviewType,
+      scheduled_start: new Date(scheduledStart).toISOString(), duration_minutes: Number(duration), timezone,
+      location, preparation_notes: preparationNotes,
+    }) }),
+    onSuccess: async () => {
+      toast.success('Interview scheduled. No message was sent.')
+      setPreparationNotes('')
+      await client.invalidateQueries({ queryKey: ['interviews'] })
+    },
+    onError: error => toast.error(error instanceof Error ? error.message : 'Interview could not be scheduled.'),
+  })
+  const update = useMutation({
+    mutationFn: ({ id, values }: { id: string; values: Record<string, unknown> }) =>
+      api<Interview>(`/interviews/${id}`, session.token, { method: 'PATCH', body: JSON.stringify(values) }),
+    onSuccess: async () => { toast.success('Interview updated.'); await client.invalidateQueries({ queryKey: ['interviews'] }) },
+    onError: error => toast.error(error instanceof Error ? error.message : 'Interview could not be updated.'),
+  })
+  useEffect(() => {
+    if (selectedCase?.members.length) {
+      const current = selectedCase.members.find(member => member.id === session.user.id)
+      const interviewer = current?.role === 'hiring_manager' ? current : selectedCase.members.find(member => member.role === 'hiring_manager')
+      if (interviewer && !interviewerId) setInterviewerId(interviewer.id)
+    }
+  }, [selectedCase, interviewerId, session.user.id])
+  useEffect(() => {
+    if (candidates.data && !candidates.data.items.some(candidate => candidate.id === candidateId)) {
+      setCandidateId(candidates.data.items[0]?.id ?? '')
+    }
+  }, [candidates.data, candidateId])
+  if (cases.isPending || interviews.isPending) return <LoadingRows/>
+  if (cases.isError) return <QueryError message={cases.error.message} retry={() => void cases.refetch()}/>
+  if (interviews.isError) return <QueryError message={interviews.error.message} retry={() => void interviews.refetch()}/>
+  const caseNames = new Map((cases.data ?? []).map(item => [item.id, item.title]))
+  const interviewRows = interviews.data.items
+  const candidateNames = new Map<string, string>()
+  for (const candidate of candidates.data?.items ?? []) candidateNames.set(candidate.id, candidate.pseudonym)
+  const memberNames = new Map((selectedCase?.members ?? []).map(member => [member.id, member.name]))
+  const canSchedule = session.user.role === 'recruiter'
+  return <section>
+    <PageTitle title="Interview calendar" description="Schedule shortlisted candidates and keep interview details and feedback in one persistent, case-scoped view."
+      actions={<Badge variant="outline">{interviews.data.total} interviews</Badge>}/>
+    {canSchedule && <section className="surface workspace-section">
+      <div className="panel-heading"><div><h2>Schedule an interview</h2><p>Scheduling records do not send invitations. Approved communication remains in the Action Gateway.</p></div><CalendarDays size={22}/></div>
+      <form className="schedule-form" onSubmit={event => { event.preventDefault(); create.mutate() }}>
+        <label>Case<select required value={caseId} onChange={event => { setCaseId(event.target.value); setCandidateId(''); setInterviewerId('') }}>
+          <option value="">Select a case</option>{cases.data.map(item => <option value={item.id} key={item.id}>{item.title}</option>)}</select></label>
+        <label>Shortlisted candidate<select required value={candidateId} onChange={event => setCandidateId(event.target.value)} disabled={!caseId || candidates.isPending}>
+          <option value="">Select a confirmed shortlisted candidate</option>{candidates.data?.items.map(item => <option value={item.id} key={item.id}>{item.pseudonym}</option>)}</select></label>
+        <label>Interviewer<select required value={interviewerId} onChange={event => setInterviewerId(event.target.value)} disabled={!selectedCase}>
+          <option value="">Select an interviewer</option>{selectedCase?.members.map(member => <option value={member.id} key={member.id}>{member.name} · {humanize(member.role)}</option>)}</select></label>
+        <label>Interview type<select value={interviewType} onChange={event => setInterviewType(event.target.value)}>
+          {['screening', 'technical', 'behavioral', 'final', 'other'].map(value => <option value={value} key={value}>{humanize(value)}</option>)}</select></label>
+        <label>Start time<Input type="datetime-local" required value={scheduledStart} onChange={event => setScheduledStart(event.target.value)}/></label>
+        <label>Duration (minutes)<Input type="number" min="15" max="240" step="15" required value={duration} onChange={event => setDuration(event.target.value)}/></label>
+        <label>Time zone<Input required value={timezone} maxLength={64} onChange={event => setTimezone(event.target.value)}/></label>
+        <label>Location or meeting link<Input value={location} maxLength={300} onChange={event => setLocation(event.target.value)}/></label>
+        <label className="schedule-wide">Preparation notes<Textarea maxLength={4000} value={preparationNotes} onChange={event => setPreparationNotes(event.target.value)}/></label>
+        <div className="schedule-wide"><Button type="submit" disabled={create.isPending || !candidateId || !interviewerId}>{create.isPending ? 'Scheduling…' : 'Schedule interview'}</Button></div>
+      </form>
+      {candidates.isError && <QueryError message={candidates.error.message} retry={() => void candidates.refetch()}/>}
+      {selectedCase && !candidates.isPending && !candidates.isError && !candidates.data?.items.length &&
+        <div className="warning-box"><AlertTriangle size={18}/><span>Confirm a ranking and shortlist candidates before scheduling.</span></div>}
+    </section>}
+    {!canSchedule && <div className="honest-note">Interview scheduling requires recruiter access. Assigned interviewers can record feedback here.</div>}
+    {interviewRows.length ? <div className="schedule-list">{interviewRows.map(interview =>
+      <InterviewCard key={interview.id} interview={interview} caseTitle={interview.case_title ?? caseNames.get(interview.case_id) ?? interview.case_id}
+        candidateLabel={interview.candidate_pseudonym ?? candidateNames.get(interview.candidate_id) ?? interview.candidate_id}
+        interviewerLabel={interview.interviewer_name ?? memberNames.get(interview.interviewer_id) ?? interview.interviewer_id} session={session}
+        onUpdate={(id, values) => update.mutate({ id, values })}/>)}</div> :
+      <NoRows title="No interviews scheduled" text="Confirmed shortlisted candidates can be scheduled here. Scheduling alone never sends an invitation."/>}
+  </section>
+}
+
+export function FollowUpsPage({ session }: Props) {
+  const client = useQueryClient()
+  const cases = useCases(session)
+  const [caseId, setCaseId] = useState('')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [candidateId, setCandidateId] = useState('')
+  const [assignedTo, setAssignedTo] = useState('')
+  const [taskType, setTaskType] = useState('follow_up')
+  const [priority, setPriority] = useState('normal')
+  const [dueAt, setDueAt] = useState('')
+  useEffect(() => {
+    if (!caseId && cases.data?.length) setCaseId(cases.data[0].id)
+  }, [caseId, cases.data])
+  const selectedCase = cases.data?.find(item => item.id === caseId)
+  const candidates = useCandidates(session, caseId, '', 100)
+  const tasks = useQuery({
+    queryKey: ['follow-ups', session.user.id],
+    queryFn: () => api<{ items: FollowUpTask[]; total: number }>('/follow-ups?limit=100', session.token),
+    enabled: cases.isSuccess,
+  })
+  const create = useMutation({
+    mutationFn: () => api<FollowUpTask>('/follow-ups', session.token, { method: 'POST', body: JSON.stringify({
+      case_id: caseId, title, description, task_type: taskType, priority,
+      ...(candidateId ? { candidate_id: candidateId } : {}),
+      ...(assignedTo ? { assigned_to: assignedTo } : {}),
+      ...(dueAt ? { due_at: new Date(dueAt).toISOString() } : {}),
+    }) }),
+    onSuccess: async () => {
+      toast.success('Follow-up task saved.')
+      setTitle(''); setDescription(''); setDueAt('')
+      await client.invalidateQueries({ queryKey: ['follow-ups'] })
+    },
+    onError: error => toast.error(error instanceof Error ? error.message : 'Task could not be saved.'),
+  })
+  const update = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api<FollowUpTask>(`/follow-ups/${id}`, session.token, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    onSuccess: async () => { toast.success('Task status saved.'); await client.invalidateQueries({ queryKey: ['follow-ups'] }) },
+    onError: error => toast.error(error instanceof Error ? error.message : 'Task could not be updated.'),
+  })
+  useEffect(() => {
+    if (selectedCase?.members.length) {
+      setAssignedTo(value => selectedCase.members.some(member => member.id === value) ? value : '')
+    }
+  }, [selectedCase])
+  useEffect(() => {
+    if (candidates.data && candidateId && !candidates.data.items.some(candidate => candidate.id === candidateId)) setCandidateId('')
+  }, [candidates.data, candidateId])
+  if (cases.isPending || tasks.isPending) return <LoadingRows/>
+  if (cases.isError) return <QueryError message={cases.error.message} retry={() => void cases.refetch()}/>
+  if (tasks.isError) return <QueryError message={tasks.error.message} retry={() => void tasks.refetch()}/>
+  const caseNames = new Map((cases.data ?? []).map(item => [item.id, item.title]))
+  const memberNames = new Map((cases.data ?? []).flatMap(item => item.members.map(member => [member.id, member.name] as const)))
+  const candidateNames = new Map((candidates.data?.items ?? []).map(candidate => [candidate.id, candidate.pseudonym]))
+  const recruiter = session.user.role === 'recruiter'
+  return <section>
+    <PageTitle title="Follow-up queue" description="Persistent, case-scoped reminders for review, interviews, feedback, and approved communication."
+      actions={<Badge variant="outline">{tasks.data.total} tasks</Badge>}/>
+    {recruiter && <section className="surface workspace-section">
+      <div className="panel-heading"><div><h2>Create a follow-up</h2><p>Tasks are reminders only. Completing one does not send a message or approve an action.</p></div><ListTodo size={22}/></div>
+      <form className="schedule-form" onSubmit={event => { event.preventDefault(); create.mutate() }}>
+        <label>Case<select required value={caseId} onChange={event => { setCaseId(event.target.value); setCandidateId(''); setAssignedTo('') }}>
+          <option value="">Select a case</option>{cases.data.map(item => <option value={item.id} key={item.id}>{item.title}</option>)}</select></label>
+        <label>Task title<Input required maxLength={200} value={title} onChange={event => setTitle(event.target.value)}/></label>
+        <label>Task type<select value={taskType} onChange={event => setTaskType(event.target.value)}>
+          {['review_cv', 'review_assessment', 'approve_communication', 'send_approved_communication', 'schedule_interview', 'confirm_interview', 'collect_feedback', 'follow_up', 'other'].map(value => <option value={value} key={value}>{humanize(value)}</option>)}</select></label>
+        <label>Candidate (optional)<select value={candidateId} onChange={event => setCandidateId(event.target.value)}>
+          <option value="">No candidate link</option>{candidates.data?.items.map(item => <option value={item.id} key={item.id}>{item.pseudonym}</option>)}</select></label>
+        <label>Assignee (optional)<select value={assignedTo} onChange={event => setAssignedTo(event.target.value)}>
+          <option value="">Unassigned</option>{selectedCase?.members.map(member => <option value={member.id} key={member.id}>{member.name} · {humanize(member.role)}</option>)}</select></label>
+        <label>Priority<select value={priority} onChange={event => setPriority(event.target.value)}>
+          {['low', 'normal', 'high', 'urgent'].map(value => <option value={value} key={value}>{humanize(value)}</option>)}</select></label>
+        <label>Due date and time<Input type="datetime-local" value={dueAt} onChange={event => setDueAt(event.target.value)}/></label>
+        <label className="schedule-wide">Description<Textarea maxLength={4000} value={description} onChange={event => setDescription(event.target.value)}/></label>
+        <div className="schedule-wide"><Button type="submit" disabled={create.isPending || !caseId || !title.trim()}>{create.isPending ? 'Saving…' : 'Create task'}</Button></div>
+      </form>
+      {candidates.isError && <QueryError message={candidates.error.message} retry={() => void candidates.refetch()}/>}
+    </section>}
+    {tasks.data.items.length ? <div className="schedule-list">{tasks.data.items.map(task => {
+      const canUpdate = recruiter || (session.user.role === 'hiring_manager' && task.assigned_to === session.user.id)
+      const nextStatus = task.status === 'open' ? 'in_progress' : 'completed'
+      return <article className={`schedule-card task-card ${task.status === 'completed' ? 'is-completed' : ''}`} key={task.id}>
+        <div className="schedule-card-heading"><div><span className="schedule-time">{task.due_at ? `Due ${new Date(task.due_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : 'No due date'}</span>
+          <h2 dir="auto">{task.title}</h2><p>{task.case_title ?? caseNames.get(task.case_id) ?? task.case_id} · {humanize(task.task_type)}</p></div>
+          <div className="schedule-badges"><Badge variant="outline">{humanize(task.status)}</Badge><Badge variant="outline">{humanize(task.priority)}</Badge></div></div>
+        {task.description && <p className="schedule-note" dir="auto">{task.description}</p>}
+        <div className="schedule-details">{task.candidate_id && <span><Users size={15}/>{task.candidate_pseudonym ?? candidateNames.get(task.candidate_id) ?? task.candidate_id}</span>}
+          {task.assigned_to && <span>Assigned to {task.assignee_name ?? memberNames.get(task.assigned_to) ?? task.assigned_to}</span>}
+          {task.origin !== 'manual' && <span>{humanize(task.origin)} task</span>}</div>
+        {canUpdate && task.status !== 'completed' && <div className="schedule-actions">
+          <Button variant={nextStatus === 'completed' ? 'default' : 'outline'} disabled={update.isPending}
+            onClick={() => update.mutate({ id: task.id, status: nextStatus })}>{nextStatus === 'completed' ? 'Complete task' : 'Start task'}</Button>
+        </div>}
+        {task.status === 'completed' && task.completed_at && <p className="schedule-note">Completed {new Date(task.completed_at).toLocaleString()}</p>}
+      </article>
+    })}</div> : <NoRows title="No follow-up tasks" text="Create a task to keep case work and interview follow-through visible across refreshes."/>}
   </section>
 }

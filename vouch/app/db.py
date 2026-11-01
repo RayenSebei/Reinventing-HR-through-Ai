@@ -82,6 +82,34 @@ CREATE TABLE IF NOT EXISTS outbox (
   case_id TEXT NOT NULL, payload_json TEXT NOT NULL, delivery_status TEXT NOT NULL,
   delivery_detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS interviews (
+  id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id),
+  candidate_id TEXT NOT NULL REFERENCES candidates(id),
+  interviewer_id TEXT NOT NULL REFERENCES users(id),
+  interview_type TEXT NOT NULL CHECK (interview_type IN ('screening','technical','behavioral','final','other')),
+  scheduled_start TEXT NOT NULL, duration_minutes INTEGER NOT NULL CHECK (duration_minutes BETWEEN 15 AND 240),
+  timezone TEXT NOT NULL, location TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','confirmed','completed','cancelled')),
+  preparation_notes TEXT NOT NULL DEFAULT '', feedback TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  cancelled_at TEXT, completed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS interviews_case_start ON interviews(case_id, scheduled_start);
+CREATE INDEX IF NOT EXISTS interviews_interviewer_start ON interviews(interviewer_id, scheduled_start);
+CREATE TABLE IF NOT EXISTS follow_up_tasks (
+  id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id),
+  title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+  task_type TEXT NOT NULL CHECK (task_type IN ('review_cv','review_assessment','approve_communication',
+    'send_approved_communication','schedule_interview','confirm_interview','collect_feedback','follow_up','other')),
+  candidate_id TEXT REFERENCES candidates(id), interview_id TEXT REFERENCES interviews(id),
+  proposal_id TEXT REFERENCES proposals(id), assigned_to TEXT REFERENCES users(id),
+  due_at TEXT, priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('low','normal','high','urgent')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','completed')),
+  origin TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual','workflow','demo')),
+  dedupe_key TEXT UNIQUE, created_by TEXT NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS follow_up_case_due ON follow_up_tasks(case_id, due_at, status);
 CREATE TABLE IF NOT EXISTS ledger (
   seq INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, actor TEXT NOT NULL,
   type TEXT NOT NULL, case_id TEXT, subject TEXT, body_json TEXT NOT NULL,
@@ -123,6 +151,9 @@ def connect() -> sqlite3.Connection:
         columns = {row["name"] for row in _conn.execute("PRAGMA table_info(ledger)").fetchall()}
         if "mac" not in columns:
             _conn.execute("ALTER TABLE ledger ADD COLUMN mac TEXT NOT NULL DEFAULT ''")
+        interview_columns = {row["name"] for row in _conn.execute("PRAGMA table_info(interviews)").fetchall()}
+        if interview_columns and "completed_at" not in interview_columns:
+            _conn.execute("ALTER TABLE interviews ADD COLUMN completed_at TEXT")
     return _conn
 
 
