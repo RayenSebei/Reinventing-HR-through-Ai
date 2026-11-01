@@ -58,7 +58,12 @@ export function InboxPage({ session }: Props) {
   }, [items, selectedId])
   const upload = useMutation({
     mutationFn: (file: File) => { const form = new FormData(); form.append('file', file); return api<InboxItem>('/inbox/messages', session.token, { method: 'POST', body: form }) },
-    onSuccess: async message => { toast.success('Email added and analysed. Links and attachments were not opened.'); setStatus('new'); setSelectedId(message.id); await client.invalidateQueries({ queryKey: ['inbox'] }) },
+    onSuccess: async message => {
+      toast.success('Email added and analysed. Links and attachments were not opened.')
+      setStatus('new')
+      await client.invalidateQueries({ queryKey: ['inbox'] })   // refetch first, so the new message is in the list
+      setSelectedId(message.id)
+    },
     onError: error => toast.error(error instanceof Error ? error.message : 'The email could not be added.'),
   })
   if (!allowed) return <section><PageTitle title="AI Inbox" description="Candidate email triage for the recruitment team."/>
@@ -83,7 +88,7 @@ export function InboxPage({ session }: Props) {
       <div className="inbox-layout">
         <section className="surface inbox-list-panel" aria-label="Messages by category">
           {digest.data.groups.length ? digest.data.groups.map(group => <div key={group.category} className="digest-group">
-            <h3 className={`digest-group-title cat-${group.category}`}>{group.category === 'security_review' ? <AlertTriangle size={14}/> : <Mail size={14}/>}{group.label}<span>{group.count}{group.urgent ? ` · ${group.urgent} urgent` : ''}</span></h3>
+            <h3 className={`digest-group-title cat-${group.category}`}>{group.category === 'security_review' ? <AlertTriangle size={14}/> : <Mail size={14}/>}{group.label}<span>{group.count} {group.count === 1 ? 'message' : 'messages'}{group.urgent ? ` · ${group.urgent} urgent` : ''}</span></h3>
             {group.items.map(item => <button key={item.id} type="button" className={`inbox-message ${selectedId === item.id ? 'selected' : ''}`}
               onClick={() => setSelectedId(item.id)} aria-pressed={selectedId === item.id}>
               <span className="inbox-message-heading"><strong dir="auto">{item.sender_name || item.sender_email}</strong><time>{new Date(item.received_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time></span>
@@ -95,7 +100,7 @@ export function InboxPage({ session }: Props) {
         {selectedId ? <MessageDetail key={selectedId} id={selectedId} session={session}/> :
           <section className="surface inbox-detail"><NoRows title="Select a message" text="Choose a message to see its summary, security checks and a reply draft."/></section>}
       </div>
-      <p className="test-disclaimer">{digest.data.method}</p>
+      <p className="muted small assist-footnote">{digest.data.method}</p>
     </>}
   </section>
 }
@@ -268,7 +273,7 @@ export function HrAssistantPage({ session }: Props) {
           {entry.result.abstained && <p className="muted small">{entry.result.reason === 'personal' ? 'Private matters go to HR in person.' : 'Not in the handbook, so no answer was guessed.'}</p>}
           {entry.result.related.length > 0 && <p className="muted small">See also: {entry.result.related.map(r => `${r.doc_title} › ${r.section}`).join(' · ')}</p>}
         </article>)}</div> : <NoRows title="Ask your first question" text="Answers come only from the handbook. If the handbook doesn't cover it, the assistant says so."/>}
-        <p className="test-disclaimer">Answers quote the handbook of Northwind Demo Ltd, a fictional company. No AI model; questions are not stored (the ledger keeps only a hash).</p>
+        <p className="muted small assist-footnote">Answers quote the handbook of Northwind Demo Ltd, a fictional company. No AI model; questions are not stored (the ledger keeps only a hash).</p>
       </section>
       <aside className="surface hr-handbook"><h2><BookOpen size={16}/> Handbook</h2>
         {handbook.isPending ? <LoadingRows count={3}/> : handbook.isError ? <QueryError message={handbook.error.message}/> :

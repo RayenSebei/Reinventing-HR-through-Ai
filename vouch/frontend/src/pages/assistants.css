@@ -50,3 +50,4 @@
 .hr-handbook h3{margin:10px 0 4px;font-size:12px}
 .hr-handbook ul{margin:0;padding-left:16px;color:var(--muted)}
 @media (max-width:860px){.hr-layout{grid-template-columns:1fr}.digest-status{margin-left:0}}
+.assist-footnote{margin-top:10px}

@@ -16,14 +16,24 @@ def _send_invite(c, cand):
 
 
 def _age(oid, days):
-    ts = (db.utcnow() - timedelta(days=days)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    db.q("UPDATE outbox SET created_at=? WHERE id=?", (ts, oid))
+    """Move this send back in time; older sends to the same candidate (e.g. from the demo seed) move further back."""
+    def iso(d):
+        return (db.utcnow() - timedelta(days=d)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    db.q("UPDATE outbox SET created_at=? WHERE id<>? AND proposal_id IN (SELECT id FROM proposals WHERE candidate_id="
+         "(SELECT p.candidate_id FROM outbox o JOIN proposals p ON p.id=o.proposal_id WHERE o.id=?))", (iso(days + 30), oid, oid))
+    db.q("UPDATE outbox SET created_at=? WHERE id=?", (iso(days), oid))
 
 
 def _items(c, uid="U-REC"):
     r = c.get("/api/follow-ups/awaiting-reply", headers=H(uid))
     assert r.status_code == 200, r.text
     return {i["outbox_id"]: i for i in r.json()["items"]}
+
+
+def test_seeded_demo_has_one_overdue_and_one_answered_invitation(demo):
+    items = demo.get("/api/follow-ups/awaiting-reply", headers=H()).json()["items"]
+    assert [i["overdue"] for i in items] == [True]
+    assert db.one("SELECT source FROM outbox_replies")["source"] == "inbox"
 
 
 def test_sent_message_without_reply_is_listed_and_becomes_overdue(demo):
@@ -80,3 +90,10 @@ def test_scope_and_roles(demo):
 def test_feature_switch_off(demo, monkeypatch):
     monkeypatch.setenv("FEAT_REPLY_TRACKING_MODE", "off")
     assert demo.get("/api/follow-ups/awaiting-reply", headers=H()).status_code == 404
+
+
+def test_no_follow_up_after_the_candidate_replied(demo):
+    oid = _send_invite(demo, shortlisted(demo)[0]["id"])
+    demo.post(f"/api/outbox/{oid}/replied", headers=H(), json={})
+    r = demo.post(f"/api/outbox/{oid}/follow-up", headers=H(), json={})
+    assert r.status_code == 409 and r.json()["error"]["code"] == "ALREADY_REPLIED"
