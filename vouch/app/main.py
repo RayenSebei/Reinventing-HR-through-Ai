@@ -20,7 +20,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import cases, config, dashboard, db, gateway, ledger, policy, retention, schemas, scheduling, testmode, workspace
+from . import agenda, cases, config, dashboard, db, gateway, ledger, policy, retention, schemas, scheduling, testmode, workspace
 from .errors import ApiError, invalid, not_found
 from .security import check_password, current_user, hash_password, issue_token, require_role
 
@@ -258,6 +258,61 @@ async def admin_update_policy(request: Request):
     if not values:
         raise invalid("Set at least one policy field.")
     return ok(await run_in_threadpool(policy.update, values, user["id"]))
+
+
+# --- agenda: calendar feed, internal meetings, interview format ------------------
+@api("GET", "/agenda")
+def get_agenda(request: Request):
+    user = current_user(request)
+    no_duplicate_query_keys(request)
+    extra = set(request.query_params) - {"from", "to"}
+    if extra:
+        raise invalid(f"Unknown query parameter(s): {', '.join(sorted(extra))}.")
+    return ok(agenda.agenda(user, request.query_params.get("from"), request.query_params.get("to")))
+
+
+@api("POST", "/meetings")
+async def create_meeting(request: Request):
+    user = await auth_user(request)
+    body = await body_as(request, schemas.MeetingCreate)
+    return ok(await run_in_threadpool(agenda.create_meeting, user, body), 201)
+
+
+@api("PATCH", "/meetings/{meeting_id}")
+async def update_meeting(request: Request):
+    user = await auth_user(request)
+    body = await body_as(request, schemas.MeetingUpdate)
+    return ok(await run_in_threadpool(agenda.update_meeting, user, request.path_params["meeting_id"],
+                                      body.model_dump(exclude_unset=True)))
+
+
+@api("DELETE", "/meetings/{meeting_id}")
+async def cancel_meeting(request: Request):
+    user = await auth_user(request)
+    no_query(request)
+    await body_as(request, schemas.Empty)
+    return ok(await run_in_threadpool(agenda.cancel_meeting, user, request.path_params["meeting_id"]))
+
+
+@api("GET", "/interviews/{interview_id}/format")
+def get_interview_format(request: Request):
+    user = current_user(request)
+    no_query(request)
+    return ok(agenda.get_format(user, request.path_params["interview_id"]))
+
+
+@api("POST", "/interviews/{interview_id}/format")
+async def decide_interview_format(request: Request):
+    user = await auth_user(request)
+    body = await body_as(request, schemas.FormatDecision)
+    return ok(await run_in_threadpool(agenda.decide_format, user, request.path_params["interview_id"], body.format))
+
+
+@api("POST", "/interviews/{interview_id}/conducted-by")
+async def interview_conducted_by(request: Request):
+    user = await auth_user(request)
+    body = await body_as(request, schemas.ConductedBy)
+    return ok(await run_in_threadpool(agenda.set_conducted_by, user, request.path_params["interview_id"], body.by))
 
 
 # --- interviews and follow-up tasks -----------------------------------------

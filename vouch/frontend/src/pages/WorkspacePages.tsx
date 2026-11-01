@@ -6,7 +6,7 @@ import { useFieldArray, useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowDown, ArrowUp, CalendarDays, Check, ChevronRight, CircleCheck, Clock3, Download, FileUp, ListTodo, Mail, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2, Upload, Users } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronRight, CircleCheck, Clock3, Download, FileUp, ListTodo, Mail, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2, Upload, Users } from 'lucide-react'
 import { api, apiBlob, ApiError, humanize, type Session } from '@/lib/api'
 import { demoInboxMessages } from '@/lib/demoInbox'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,8 @@ import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Agenda } from './Agenda'
 
 z.config({ jitless: true })
 
@@ -895,6 +897,7 @@ export function InterviewsPage({ session }: Props) {
   const [timezone, setTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
   const [location, setLocation] = useState('')
   const [preparationNotes, setPreparationNotes] = useState('')
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   useEffect(() => {
     if (!caseId && cases.data?.length) setCaseId(cases.data[0].id)
   }, [caseId, cases.data])
@@ -914,14 +917,20 @@ export function InterviewsPage({ session }: Props) {
     onSuccess: async () => {
       toast.success('Interview scheduled. No message was sent.')
       setPreparationNotes('')
+      setScheduleOpen(false)
       await client.invalidateQueries({ queryKey: ['interviews'] })
+      await client.invalidateQueries({ queryKey: ['agenda'] })
     },
     onError: error => toast.error(error instanceof Error ? error.message : 'Interview could not be scheduled.'),
   })
   const update = useMutation({
     mutationFn: ({ id, values }: { id: string; values: Record<string, unknown> }) =>
       api<Interview>(`/interviews/${id}`, session.token, { method: 'PATCH', body: JSON.stringify(values) }),
-    onSuccess: async () => { toast.success('Interview updated.'); await client.invalidateQueries({ queryKey: ['interviews'] }) },
+    onSuccess: async () => {
+      toast.success('Interview updated.')
+      await client.invalidateQueries({ queryKey: ['interviews'] })
+      await client.invalidateQueries({ queryKey: ['agenda'] })
+    },
     onError: error => toast.error(error instanceof Error ? error.message : 'Interview could not be updated.'),
   })
   useEffect(() => {
@@ -946,10 +955,10 @@ export function InterviewsPage({ session }: Props) {
   const memberNames = new Map((selectedCase?.members ?? []).map(member => [member.id, member.name]))
   const canSchedule = session.user.role === 'recruiter'
   return <section>
-    <PageTitle title="Interview calendar" description="Schedule shortlisted candidates and keep interview details and feedback in one persistent, case-scoped view."
-      actions={<Badge variant="outline">{interviews.data.total} interviews</Badge>}/>
-    {canSchedule && <section className="surface workspace-section">
-      <div className="panel-heading"><div><h2>Schedule an interview</h2><p>Scheduling records do not send invitations. Approved communication remains in the Action Gateway.</p></div><CalendarDays size={22}/></div>
+    <PageTitle title="Interview calendar" description="Interviews and internal meetings in one calendar. Click an empty slot to add one; click an interview to see its recommended format."
+      actions={<>{canSchedule && <Button onClick={() => setScheduleOpen(true)}><Plus size={16}/>Schedule interview</Button>}<Badge variant="outline">{interviews.data.total} interviews</Badge></>}/>
+    {canSchedule && <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}><DialogContent className="schedule-dialog">
+      <DialogHeader><DialogTitle>Schedule an interview</DialogTitle><DialogDescription>Scheduling records do not send invitations. Approved communication remains in the Action Gateway.</DialogDescription></DialogHeader>
       <form className="schedule-form" onSubmit={event => { event.preventDefault(); create.mutate() }}>
         <label>Case<select required value={caseId} onChange={event => { setCaseId(event.target.value); setCandidateId(''); setInterviewerId('') }}>
           <option value="">Select a case</option>{cases.data.map(item => <option value={item.id} key={item.id}>{item.title}</option>)}</select></label>
@@ -969,14 +978,16 @@ export function InterviewsPage({ session }: Props) {
       {candidates.isError && <QueryError message={candidates.error.message} retry={() => void candidates.refetch()}/>}
       {selectedCase && !candidates.isPending && !candidates.isError && !candidates.data?.items.length &&
         <div className="warning-box"><AlertTriangle size={18}/><span>Confirm a ranking and shortlist candidates before scheduling.</span></div>}
-    </section>}
+    </DialogContent></Dialog>}
     {!canSchedule && <div className="honest-note">Interview scheduling requires recruiter access. Assigned interviewers can record feedback here.</div>}
-    {interviewRows.length ? <div className="schedule-list">{interviewRows.map(interview =>
-      <InterviewCard key={interview.id} interview={interview} caseTitle={interview.case_title ?? caseNames.get(interview.case_id) ?? interview.case_id}
+    <Agenda session={session}
+      onNewInterview={canSchedule ? start => { setScheduledStart(localDateTimeValue(start)); setScheduleOpen(true) } : undefined}
+      renderInterview={interview => <InterviewCard interview={interview}
+        caseTitle={interview.case_title ?? caseNames.get(interview.case_id) ?? interview.case_id}
         candidateLabel={interview.candidate_pseudonym ?? candidateNames.get(interview.candidate_id) ?? interview.candidate_id}
         interviewerLabel={interview.interviewer_name ?? memberNames.get(interview.interviewer_id) ?? interview.interviewer_id} session={session}
-        onUpdate={(id, values) => update.mutate({ id, values })}/>)}</div> :
-      <NoRows title="No interviews scheduled" text="Confirmed shortlisted candidates can be scheduled here. Scheduling alone never sends an invitation."/>}
+        onUpdate={(id, values) => update.mutate({ id, values })}/>}/>
+    {!interviewRows.length && <NoRows title="No interviews scheduled yet" text="Confirmed shortlisted candidates can be scheduled from the calendar. Scheduling alone never sends an invitation."/>}
   </section>
 }
 

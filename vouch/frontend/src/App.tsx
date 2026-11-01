@@ -136,7 +136,9 @@ export default function App() {
   const visibleNav=NAV.filter(item=>!item.role||item.role===currentUser.role)
   const cases=(caseId?allCases.data:overview.data)?.cases??[]
   const pending=overview.data?.kpis.pending_approval
-  const currentPage=visibleNav.find(item=>item.path==='/'?location.pathname==='/':location.pathname.startsWith(item.path))?.label??'Workspace'
+  const currentItem=visibleNav.find(item=>item.path==='/'?location.pathname==='/':location.pathname.startsWith(item.path))
+  const currentPage=currentItem?.label??'Workspace'
+  const currentSection=currentItem?.section??'Workspace'
   const appProps={session:{...activeSession,user:currentUser}}
   async function verifyFromPalette(){
     try {const result=await api<{ok:boolean;events:number;first_bad_seq?:number}>('/ledger/verify',activeSession.token);if(result.ok)toast.success(`Chain intact · ${result.events} events`);else toast.error(`Chain failure at sequence ${result.first_bad_seq}`)}
@@ -161,7 +163,7 @@ export default function App() {
     </aside>
     <div className="main-shell">
       <header className="app-header"><Button variant="ghost" size="icon" className="mobile-menu" aria-label="Open navigation" onClick={()=>setMobileNav(true)}><Menu/></Button>
-        <div className="breadcrumb"><span>Workspace</span><ChevronRight size={15}/><strong>{currentPage}</strong></div>
+        <div className="breadcrumb"><span>{currentSection}</span>{currentItem&&<><ChevronRight size={15}/><strong>{currentPage}</strong></>}</div>
         <div className="header-actions"><Button variant="ghost" className="presenter-toggle" aria-pressed={presenterMode} onClick={()=>{setPresenterMode(value=>!value);setDemoStep(0)}}><Presentation size={17}/>{presenterMode?'Exit presenter':'Presenter mode'}</Button><Button variant="ghost" className="search-trigger" aria-label="Open command palette" onClick={()=>setCommandOpen(true)}><Search size={17}/><span>Search anything</span><kbd>Ctrl K</kbd></Button>
           <Button variant="ghost" size="icon" aria-label={`Switch to ${theme==='dark'?'light':'dark'} theme`} onClick={()=>setTheme(theme==='dark'?'light':'dark')}>{theme==='dark'?<Sun size={19}/>:<Moon size={19}/>}</Button>
         </div>
