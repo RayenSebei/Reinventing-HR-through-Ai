@@ -146,7 +146,7 @@ test('candidate list uses live data and inbox clearly identifies synthetic examp
   await page.getByRole('link', { name: 'AI Inbox', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'AI Inbox', exact: true })).toBeVisible()
   await expect(page.getByRole('note')).toContainText('All messages and summaries are synthetic')
-  await expect(page.getByText('Prewritten sample; no AI request was made.')).toBeVisible()
+  await expect(page.getByText('Links and attachments are never opened.', { exact: false }).first()).toBeVisible()
 })
 
 test.beforeAll(async () => {
