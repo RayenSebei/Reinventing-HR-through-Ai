@@ -86,11 +86,15 @@ class Ctx:
     def shortlist(self, case_id: str, who="R-ALPHA") -> dict:
         rk = self.ok(who, "POST", f"/cases/{case_id}/ranking")
         candidate_ids = [row["candidate_id"] for row in rk["rows"]]
+        for cid in candidate_ids:                    # HI-03: the confirming user opens every dossier first
+            self.ok(who, "GET", f"/candidates/{cid}/dossier")
         return self.ok(who, "POST", f"/cases/{case_id}/ranking/{rk['version']}/shortlist",
                        json={"candidate_ids": candidate_ids})
 
     def proposal(self, case_id: str, cand_id: str, start="2030-05-01T10:00:00Z") -> dict:
         self.shortlist(case_id)
+        contact = self.ok("R-ALPHA", "GET", f"/candidates/{cand_id}/contact")   # D11: a recruiter confirms the address
+        self.ok("R-ALPHA", "POST", f"/candidates/{cand_id}/contact/confirm", json={"email": contact["suggested_email"]})
         return self.ok("R-ALPHA", "POST", f"/cases/{case_id}/proposals", json={"candidate_id": cand_id, "start": start})
 
     def ledger(self, case_id: str) -> list[dict]:
@@ -456,6 +460,7 @@ def au_005(c: Ctx):
             "display_name" not in before and "display_name" not in listed[0] and
             "candidate-ai04@example.invalid" not in json.dumps([before, listed]))
     rk = c.ok("R-ALPHA", "POST", f"/cases/{case}/ranking")
+    c.ok("R-ALPHA", "GET", f"/candidates/{cid}/dossier")      # HI-03 setup: the recruiter opens the dossier
     confirmed = c.ok("R-ALPHA", "POST", f"/cases/{case}/ranking/{rk['version']}/shortlist",
                      json={"candidate_ids": [cid]})
     after = c.ok("R-ALPHA", "GET", f"/candidates/{cid}")

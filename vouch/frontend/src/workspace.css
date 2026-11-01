@@ -47,6 +47,10 @@
 .stack-form>label,.criterion-row>label,.table-controls>label{display:grid;gap:6px;font-size:13px;font-weight:550}
 .stack-form input,.stack-form select,.stack-form textarea,.criterion-row input,.criterion-row select,.table-controls select,.case-meta select,.panel-heading select,.workspace-section select{width:100%;min-height:40px}
 .stack-form textarea{min-height:90px}
+.recipient-confirm{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--subtle)}
+.recipient-confirm>label{display:grid;gap:6px;font-size:13px;font-weight:550}
+.recipient-confirm input{width:100%;min-height:40px}
+.recipient-confirm .badge,.recipient-confirm button{justify-self:start}
 .criterion-row{display:grid;grid-template-columns:minmax(170px,2fr) minmax(120px,1fr) minmax(100px,.6fr) minmax(150px,1.4fr) 40px;gap:12px;align-items:end;padding-block:12px;border-bottom:1px solid var(--line)}
 .weight-total{display:flex;justify-content:space-between;align-items:center;padding:12px 0;font-size:14px}
 .page-actions{flex-wrap:wrap}

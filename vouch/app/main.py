@@ -5,6 +5,7 @@ All API routes live under /api. Errors are JSON: {"error": {"code", "message"}}.
 from __future__ import annotations
 
 import json
+import os
 import time
 from collections import OrderedDict
 from contextlib import asynccontextmanager
@@ -20,7 +21,8 @@ from starlette.concurrency import run_in_threadpool
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import agenda, cases, config, dashboard, db, gateway, ledger, policy, retention, schemas, scheduling, testmode, workspace
+from . import (agenda, cases, config, contacts, dashboard, db, delivery, gateway, ledger, migrations, policy, retention,
+               reviews, schemas, scheduling, testmode, workspace)
 from .errors import ApiError, invalid, not_found
 from .security import check_password, current_user, hash_password, issue_token, require_role
 
@@ -131,7 +133,7 @@ def meta(request: Request):
     provider_call = config.MODEL_MODE in ("openai", "ollama")
     return ok({"model_mode": config.MODEL_MODE, "test_mode": config.TEST_MODE,
                "demo_mode": config.DEMO_MODE,
-               "n8n_delivery": bool(config.N8N_WEBHOOK_URL),
+               "n8n_delivery": bool(config.N8N_WEBHOOK_URL), "outbound_mode": config.OUTBOUND_MODE,
                "ai_capabilities": {
                    "mode": config.MODEL_MODE,
                    "provider_call_attempted_on_cv_upload": provider_call,
@@ -506,7 +508,23 @@ async def delete_candidate(request: Request):
 def get_dossier(request: Request):
     u = current_user(request)
     no_query(request)
-    return ok(cases.dossier(u, request.path_params["cand_id"]))
+    out = cases.dossier(u, request.path_params["cand_id"])
+    reviews.record(u, request.path_params["cand_id"])     # HI-03: opening a dossier here is what counts as a review
+    return ok(out)
+
+
+@api("GET", "/candidates/{cand_id}/contact")
+def get_contact(request: Request):
+    u = current_user(request)
+    no_query(request)
+    return ok(contacts.get_contact(u, request.path_params["cand_id"]))
+
+
+@api("POST", "/candidates/{cand_id}/contact/confirm")
+async def confirm_contact(request: Request):
+    u = await auth_user(request)
+    body = await body_as(request, schemas.ContactConfirm)
+    return ok(await run_in_threadpool(contacts.confirm, u, request.path_params["cand_id"], body.email))
 
 
 @api("POST", "/candidates/{cand_id}/dossier")
@@ -552,6 +570,7 @@ def get_ranking(request: Request):
 async def confirm_ranking(request: Request):
     u = await auth_user(request)
     await body_as(request, schemas.Empty)
+    await run_in_threadpool(reviews.enforce_ranking, u, request.path_params["case_id"], request.path_params["version"])
     return ok(await run_in_threadpool(cases.confirm_ranking, u, request.path_params["case_id"], request.path_params["version"]))
 
 
@@ -559,6 +578,8 @@ async def confirm_ranking(request: Request):
 async def shortlist(request: Request):
     u = await auth_user(request)
     body = await body_as(request, schemas.ShortlistSet)
+    # HI-03: every candidate placed on the shortlist must have been opened by this recruiter.
+    await run_in_threadpool(reviews.enforce_selected, u, request.path_params["case_id"], list(body.candidate_ids))
     result = await run_in_threadpool(
         cases.shortlist, u, request.path_params["case_id"], request.path_params["version"], body)
     return ok(result)
@@ -611,6 +632,33 @@ async def execute(request: Request):
     u = await auth_user(request)
     await body_as(request, schemas.Empty)     # the gateway never accepts a payload from the client
     return ok(await run_in_threadpool(gateway.execute, u, request.path_params["pid"]))
+
+
+@api("POST", "/outbox/{oid}/retry")
+async def retry_delivery(request: Request):
+    u = await auth_user(request)
+    await body_as(request, schemas.Empty)     # a retry re-sends the stored approved payload, nothing else
+    return ok(await run_in_threadpool(delivery.retry, u, request.path_params["oid"]))
+
+
+@api("GET", "/healthz")
+def healthz(request: Request):
+    return ok({"ok": True})
+
+
+@api("GET", "/readyz")
+def readyz(request: Request):
+    """Startup self-check: schema version, SQLite integrity, ledger chain, writable data dirs. No data returned."""
+    conn = db.connect()
+    with db._lock:
+        integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        version = migrations.current(conn)
+    led = ledger.verify()
+    writable = all(os.access(d, os.W_OK) for d in (config.DATA_DIR, config.ORIGINALS_DIR))
+    body = {"ok": integrity == "ok" and led["ok"] and writable and version == migrations.LATEST,
+            "schema_version": version, "integrity": integrity, "ledger_ok": led["ok"], "writable": writable,
+            "outbound_mode": config.OUTBOUND_MODE}
+    return ok(body, 200 if body["ok"] else 503)
 
 
 @api("GET", "/cases/{case_id}/outbox")

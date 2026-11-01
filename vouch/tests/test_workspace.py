@@ -92,8 +92,11 @@ def test_compare_analytics_and_outbox_follow_case_membership(client):
     add_document("compare-1")
     proposal_id = "proposal-compare"
     db.q("INSERT INTO proposals VALUES(?,?,?,?,?,?,?,?,?,?)",
-         (proposal_id, "CASE-DEMO", "compare-1", "interview_invite", "{}", "b" * 64,
+         (proposal_id, "CASE-DEMO", "compare-1", "interview_invite", '{"recipient":"private@example.invalid"}', "b" * 64,
           "U-REC", "EXECUTED", db.now(), db.now()))
+    # The outbox trigger (HL-04 backstop) only admits rows backed by a used, matching approval.
+    db.q("INSERT INTO approvals VALUES(?,?,?,?,?,?,?,?,?)",
+         ("approval-compare", proposal_id, "b" * 64, "U-MGR", "approved", "n-compare", db.now(), db.now(), db.now()))
     db.q("INSERT INTO outbox VALUES(?,?,?,?,?,?,?)",
          ("outbox-compare", proposal_id, "CASE-DEMO", '{"recipient":"private@example.invalid"}',
           "SANDBOX_ONLY", "", db.now()))
@@ -188,6 +191,8 @@ def test_admin_user_and_policy_management(client):
           "U-REC", "U-REC", db.now(), db.now()))
     db.q("INSERT INTO shortlisted_candidates VALUES(?,?,?)",
          ("CASE-DEMO", 1, "policy-candidate"))
+    client.post("/api/candidates/policy-candidate/contact/confirm", headers=auth(),   # D11
+                json={"email": "private@example.invalid"})
     proposal = client.post("/api/cases/CASE-DEMO/proposals", headers=auth(),
                            json={"candidate_id": "policy-candidate"})
     assert proposal.status_code == 201

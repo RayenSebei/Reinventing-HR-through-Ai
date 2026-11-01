@@ -16,8 +16,10 @@ Our entry for the **Secure AI HR System** hackathon.
 Quick start:
 
 ```bash
-cd vouch && pip install -r requirements.txt && python -m app --seed --yes
-# open http://127.0.0.1:8000  (password for all demo users: demo1234)
+cd vouch && pip install -r requirements.txt
+VOUCH_DEMO_MODE=1 python -m app --seed --yes     # Windows: set VOUCH_DEMO_MODE=1 first
+VOUCH_DEMO_MODE=1 python -m app
+# open http://127.0.0.1:8000  (with VOUCH_DEMO_MODE=1 the password for all demo users is demo1234)
 ```
 
 Latest local validation: **52 backend tests passed**, including all 27 SENTINEL scenarios; **21 Playwright smoke tests passed** across four roles, two resolutions and both themes. Browser CSP checks found no violations. These are synthetic demo checks, not a claim of production security; a real-model run remains separate validation.

@@ -2,6 +2,9 @@
 All candidates and CV fixtures are fictional test data."""
 from __future__ import annotations
 
+import os
+import secrets
+
 from datetime import timedelta
 from pathlib import Path
 
@@ -37,11 +40,15 @@ DEMO_CVS = [
 
 
 def seed() -> str:
+    """With VOUCH_DEMO_MODE=1 every demo user's password is demo1234. Otherwise (WA-02) one random
+    password is generated and printed once, so no known password exists outside a demo."""
     db.connect()
     db.wipe()
+    demo = os.environ.get("VOUCH_DEMO_MODE") == "1"
+    password = "demo1234" if demo else secrets.token_urlsafe(12)
     with db.tx() as conn:
         for uid, email, name, role in USERS:
-            conn.execute("INSERT INTO users VALUES (?,?,?,?,?)", (uid, email, name, role, hash_password("demo1234")))
+            conn.execute("INSERT INTO users VALUES (?,?,?,?,?)", (uid, email, name, role, hash_password(password)))
         cid = "CASE-DEMO"
         conn.execute("INSERT INTO cases (id,title,description,owner_id,criteria_confirmed_by,criteria_confirmed_at,created_at) "
                      "VALUES (?,?,?,?,?,?,?)",
@@ -54,7 +61,11 @@ def seed() -> str:
             conn.execute("INSERT INTO criteria VALUES (?,?,?,?,?,?,?)", (db.new_id("CRIT"), cid, label, kind, w, canonical(aliases), i))
         ledger.append(conn, "U-REC", "CASE_CREATED", cid, cid, {"manager_id": "U-MGR", "seed": True})
         ledger.append(conn, "U-REC", "CRITERIA_CONFIRMED", cid, cid, {"seed": True})
-    return "Seeded demo users (password demo1234): " + ", ".join(e for _, e, _, _ in USERS)
+    users = ", ".join(e for _, e, _, _ in USERS)
+    if demo:
+        return f"Seeded demo users (VOUCH_DEMO_MODE=1, password demo1234): {users}"
+    return (f"Seeded demo users: {users}. Password for all of them (shown once, not stored): {password}. "
+            "Set VOUCH_DEMO_MODE=1 to use the documented demo password instead")
 
 
 def seed_demo() -> str:

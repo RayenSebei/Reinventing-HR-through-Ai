@@ -10,15 +10,13 @@
 """
 from __future__ import annotations
 
-import hashlib
 import hmac
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
-import requests
 
-from . import config, db, ledger, policy
+from . import db, delivery, ledger, policy
 from .canonical import canonical, payload_hash
 from .errors import ApiError, conflict, forbidden, invalid, not_found
 from .security import is_member, require_case_read, require_case_write
@@ -89,9 +87,12 @@ def create_proposal(user: dict, case_id: str, body) -> dict:
         if not selected:
             raise conflict("SHORTLIST_NOT_CONFIRMED",
                            "Confirm a shortlist that explicitly includes this candidate first.")
+        row = conn.execute("SELECT email FROM contact_confirmations WHERE candidate_id=?", (cand["id"],)).fetchone()
+        if not row:   # D11: the CV address is only a suggestion; a recruiter must confirm it first
+            raise conflict("RECIPIENT_NOT_CONFIRMED", "Confirm this candidate's email address before proposing an action.")
         subject, text = draft_text(body.kind, cand["pseudonym"], case["title"], start, body.duration_minutes)
         payload = {"case_id": case_id, "candidate_id": cand["id"], "kind": body.kind,
-                   "recipient": cand["contact_email"], "start": start,
+                   "recipient": row["email"], "start": start,
                    "duration_minutes": body.duration_minutes, "subject": subject, "body": text}
         _validate_payload(payload)
         h = payload_hash(payload)
@@ -225,6 +226,12 @@ def execute(user: dict, pid: str) -> dict:
                     except ApiError as exc:
                         denial = _deny(conn, user, p, "INVALID_PAYLOAD", exc.message)
                     if not denial:
+                        confirmed = conn.execute("SELECT email FROM contact_confirmations WHERE candidate_id=?",
+                                                 (p["candidate_id"],)).fetchone()
+                        if not confirmed or db.loads(p["payload_json"]).get("recipient") != confirmed["email"]:
+                            denial = _deny(conn, user, p, "RECIPIENT_NOT_CONFIRMED",
+                                           "The recipient is not the address a recruiter confirmed for this candidate.")
+                    if not denial:
                         oid = db.new_id("OUT")
                         cur = conn.execute("UPDATE approvals SET used_at=? WHERE id=? AND used_at IS NULL", (db.now(), a["id"]))
                         if cur.rowcount != 1:
@@ -243,22 +250,8 @@ def execute(user: dict, pid: str) -> dict:
 
 
 def _deliver(oid: str, payload_json: str, pid: str, case_id: str) -> None:
-    """Hand the approved action to n8n (optional). The sandbox outbox row is the record."""
-    if not config.N8N_WEBHOOK_URL:
-        with db.tx() as conn:
-            conn.execute("UPDATE outbox SET delivery_status='SANDBOX_ONLY' WHERE id=?", (oid,))
-            ledger.append(conn, "gateway", "DELIVERY_SANDBOX_ONLY", case_id, oid, {"detail": ""})
-        return
-    sig = hmac.new(config.N8N_HMAC_SECRET.encode(), payload_json.encode("utf-8"), hashlib.sha256).hexdigest()
-    try:
-        r = requests.post(config.N8N_WEBHOOK_URL, json={"outbox_id": oid, "proposal_id": pid, "payload_json": payload_json},
-                          headers={"X-Vouch-Signature": sig}, timeout=10)
-        status, detail = ("DELIVERED", "") if r.ok else ("DELIVERY_FAILED", f"n8n answered {r.status_code}")
-    except requests.RequestException as e:
-        status, detail = "DELIVERY_FAILED", type(e).__name__
-    with db.tx() as conn:
-        conn.execute("UPDATE outbox SET delivery_status=?, delivery_detail=? WHERE id=?", (status, detail, oid))
-        ledger.append(conn, "gateway", "DELIVERY_" + status, case_id, oid, {"detail": detail})
+    """Hand the approved action to delivery: global kill switch, recorded attempts, n8n when live."""
+    delivery.deliver(oid, payload_json, pid, case_id=case_id)
 
 
 def outbox(user: dict, case_id: str) -> list[dict]:

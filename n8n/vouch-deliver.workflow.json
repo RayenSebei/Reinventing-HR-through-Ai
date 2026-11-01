@@ -12,7 +12,10 @@
       "name": "Webhook from Vouch gateway",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "7b0d1d4c-5f0e-4a43-8a8e-3e2f6c0a0001"
     },
     {
@@ -27,7 +30,44 @@
       "name": "HMAC-SHA256 of payload",
       "type": "n8n-nodes-base.crypto",
       "typeVersion": 2,
-      "position": [240, 0]
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.computed_signature }}",
+        "dataPropertyName": "computed_check",
+        "encoding": "hex"
+      },
+      "id": "b2c2e3f4-0000-4000-8000-000000000102",
+      "name": "HMAC of computed signature",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.headers['x-vouch-signature'] || '' }}",
+        "dataPropertyName": "received_check",
+        "encoding": "hex"
+      },
+      "id": "b2c2e3f4-0000-4000-8000-000000000103",
+      "name": "HMAC of received signature",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        680,
+        0
+      ]
     },
     {
       "parameters": {
@@ -41,8 +81,8 @@
           "conditions": [
             {
               "id": "a1c2e3f4-0000-4000-8000-000000000001",
-              "leftValue": "={{ $json.computed_signature }}",
-              "rightValue": "={{ $json.headers['x-vouch-signature'] }}",
+              "leftValue": "={{ $json.computed_check }}",
+              "rightValue": "={{ $json.received_check }}",
               "operator": {
                 "type": "string",
                 "operation": "equals"
@@ -57,7 +97,10 @@
       "name": "Signature valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [480, 0]
+      "position": [
+        900,
+        0
+      ]
     },
     {
       "parameters": {
@@ -66,13 +109,18 @@
         "subject": "={{ JSON.parse($json.body.payload_json).subject }}",
         "emailFormat": "text",
         "text": "={{ JSON.parse($json.body.payload_json).body }}",
-        "options": {}
+        "options": {
+          "appendAttribution": false
+        }
       },
       "id": "2f6c1a8e-1d4b-4c41-9a0e-7c1e4f0a0004",
       "name": "Send email (sandbox SMTP)",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [720, -100]
+      "position": [
+        1120,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -86,7 +134,10 @@
       "name": "Reply: delivered",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [960, -100]
+      "position": [
+        1340,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -100,27 +151,92 @@
       "name": "Reply: rejected (bad signature)",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [720, 120]
+      "position": [
+        1120,
+        120
+      ]
     }
   ],
   "connections": {
     "Webhook from Vouch gateway": {
-      "main": [[{ "node": "HMAC-SHA256 of payload", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "HMAC-SHA256 of payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "HMAC-SHA256 of payload": {
-      "main": [[{ "node": "Signature valid?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "HMAC of computed signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Signature valid?": {
       "main": [
-        [{ "node": "Send email (sandbox SMTP)", "type": "main", "index": 0 }],
-        [{ "node": "Reply: rejected (bad signature)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send email (sandbox SMTP)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply: rejected (bad signature)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send email (sandbox SMTP)": {
-      "main": [[{ "node": "Reply: delivered", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Reply: delivered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HMAC of computed signature": {
+      "main": [
+        [
+          {
+            "node": "HMAC of received signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HMAC of received signature": {
+      "main": [
+        [
+          {
+            "node": "Signature valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "pinData": {},
-  "meta": { "templateCredsSetupCompleted": false }
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
 }

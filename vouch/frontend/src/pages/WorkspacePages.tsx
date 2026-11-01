@@ -554,6 +554,36 @@ function ProposalCard({ proposal, session, allowEdit = false, allowExecute = fal
   </article>
 }
 
+type Contact = { candidate_id: string; suggested_email: string; source: 'placeholder' | 'cv_text'; confirmed_email: string | null; confirmed_by: string | null; confirmed_at: string | null; statement: string }
+
+// D11: the address in a CV is written by the candidate, so it is only a suggestion. A recruiter
+// confirms it here; the gateway refuses to create or execute an action for any other address.
+function RecipientConfirm({ session, candidateId }: { session: Session; candidateId: string }) {
+  const client = useQueryClient()
+  const contact = useQuery({
+    queryKey: ['candidate-contact', candidateId],
+    queryFn: () => api<Contact>(`/candidates/${candidateId}/contact`, session.token),
+  })
+  const [email, setEmail] = useState('')
+  useEffect(() => { setEmail(contact.data?.confirmed_email ?? contact.data?.suggested_email ?? '') }, [contact.data])
+  const confirm = useMutation({
+    mutationFn: () => api<Contact>(`/candidates/${candidateId}/contact/confirm`, session.token,
+      { method: 'POST', body: JSON.stringify({ email: email.trim() }) }),
+    onSuccess: async () => { toast.success('Recipient confirmed.'); await client.invalidateQueries({ queryKey: ['candidate-contact', candidateId] }) },
+    onError: error => toast.error(error instanceof Error ? error.message : 'Recipient could not be confirmed.'),
+  })
+  if (contact.isPending) return <LoadingRows/>
+  if (contact.isError) return <QueryError message={contact.error.message} retry={() => void contact.refetch()}/>
+  const confirmed = contact.data.confirmed_email
+  const changed = !!confirmed && email.trim() !== confirmed
+  return <div className="recipient-confirm">
+    <label>Recipient email<input type="email" value={email} maxLength={254} autoComplete="off" spellCheck={false} onChange={event => setEmail(event.target.value)}/></label>
+    <p className="muted small">{contact.data.source === 'placeholder' ? 'No address was found in the CV; enter the one the candidate gave you.' : contact.data.statement}</p>
+    {confirmed && !changed ? <Badge variant="outline" className="success">Confirmed: {confirmed}</Badge> :
+      <Button variant="outline" onClick={() => confirm.mutate()} disabled={!email.trim() || confirm.isPending}>{changed ? 'Confirm new address' : 'Confirm address'}</Button>}
+  </div>
+}
+
 function CaseActions({ session, caseItem }: { session: Session; caseItem: CaseItem }) {
   const client = useQueryClient()
   const candidates = useQuery({
@@ -566,6 +596,11 @@ function CaseActions({ session, caseItem }: { session: Session; caseItem: CaseIt
   })
   const [candidateId, setCandidateId] = useState('')
   const [start, setStart] = useState('')
+  const contact = useQuery({
+    queryKey: ['candidate-contact', candidateId],
+    queryFn: () => api<Contact>(`/candidates/${candidateId}/contact`, session.token),
+    enabled: !!candidateId && caseItem.can_edit,
+  })
   useEffect(() => { if (!candidateId && candidates.data?.items[0]) setCandidateId(candidates.data.items[0].id) }, [candidateId, candidates.data])
   const create = useMutation({
     mutationFn: () => api<Proposal>(`/cases/${caseItem.id}/proposals`, session.token,
@@ -577,8 +612,10 @@ function CaseActions({ session, caseItem }: { session: Session; caseItem: CaseIt
     {caseItem.can_edit && <div className="surface workspace-form"><h3>Draft an interview invite</h3>
       {candidates.data?.items.length ? <div className="stack-form">
         <label>Shortlisted candidate<select value={candidateId} onChange={event => setCandidateId(event.target.value)}>{candidates.data.items.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.pseudonym}</option>)}</select></label>
+        {candidateId && <RecipientConfirm key={candidateId} session={session} candidateId={candidateId}/>}
         <label>Proposed start time<input type="datetime-local" value={start} min={new Date().toISOString().slice(0, 16)} onChange={event => setStart(event.target.value)}/></label>
-        <Button onClick={() => create.mutate()} disabled={!candidateId || create.isPending}>Create draft</Button>
+        <Button onClick={() => create.mutate()} disabled={!candidateId || !contact.data?.confirmed_email || create.isPending}>Create draft</Button>
+        {candidateId && contact.data && !contact.data.confirmed_email && <p className="muted small">Confirm the recipient before drafting.</p>}
       </div> : <NoRows title="No confirmed shortlist" text="Confirm shortlist membership before drafting candidate actions."/>}
     </div>}
     {proposals.isPending ? <LoadingRows/> : proposals.isError ? <QueryError message={proposals.error.message} retry={() => void proposals.refetch()}/> :

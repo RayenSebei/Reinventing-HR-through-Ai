@@ -201,6 +201,7 @@ def test_criteria_lock_duplicate_detection_and_explicit_shortlist(client):
     proposal = client.post(f"/api/cases/{case_id}/proposals", headers=auth(), json={"candidate_id": cand2})
     assert proposal.status_code == 409
     assert proposal.json()["error"]["code"] == "SHORTLIST_NOT_CONFIRMED"
+    client.get(f"/api/candidates/{cand1}/dossier", headers=auth())   # HI-03: open the dossier first
     shortlisted = client.post(
         f"/api/cases/{case_id}/ranking/{ranking['version']}/shortlist", headers=auth(),
         json={"candidate_ids": [cand1]})
@@ -209,6 +210,9 @@ def test_criteria_lock_duplicate_detection_and_explicit_shortlist(client):
     assert "display_name" not in client.get(f"/api/candidates/{cand2}", headers=auth()).json()
     assert client.post(f"/api/cases/{case_id}/proposals", headers=auth(),
                        json={"candidate_id": cand2}).status_code == 409
+    contact = client.get(f"/api/candidates/{cand1}/contact", headers=auth()).json()   # D11
+    client.post(f"/api/candidates/{cand1}/contact/confirm", headers=auth(),
+                json={"email": contact["suggested_email"]})
     assert client.post(f"/api/cases/{case_id}/proposals", headers=auth(),
                        json={"candidate_id": cand1}).status_code == 201
 

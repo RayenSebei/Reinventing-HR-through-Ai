@@ -1,0 +1,920 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...FF.                               [100%]
+=================================== FAILURES ===================================
+_______________ test_proposal_refused_until_recipient_confirmed ________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae987c830>
+
+    def test_proposal_refused_until_recipient_confirmed(client):
+        d = upload(client)
+        assert shortlist(client).status_code == 200
+        r = client.post(f"/api/cases/{CASE}/proposals", headers=H(), json={"candidate_id": d["candidate_id"]})
+>       assert r.status_code == 409 and r.json()["error"]["code"] == "RECIPIENT_NOT_CONFIRMED"
+E       assert (201 == 409)
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tests/test_hitl.py:80: AssertionError
+______________________ test_cv_email_is_only_a_suggestion ______________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20207d0>
+
+    def test_cv_email_is_only_a_suggestion(client):
+        d = upload(client)
+        info = client.get(f"/api/candidates/{d['candidate_id']}/contact", headers=H()).json()
+>       assert info["suggested_email"] and info["confirmed_email"] is None
+               ^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'suggested_email'
+
+tests/test_hitl.py:86: KeyError
+_ test_recipient_must_be_one_clean_address[a@x.example\r\nBcc: evil@x.example] _
+
+client = <starlette.testclient.TestClient object at 0x7ffae2020690>
+bad = 'a@x.example\r\nBcc: evil@x.example'
+
+    @pytest.mark.parametrize("bad", ["a@x.example\r\nBcc: evil@x.example", "a@x.example, b@x.example",
+                                     "a@x.example;b@x.example", "not-an-address", "a@x.example\n", "<a@x.example>"])
+    def test_recipient_must_be_one_clean_address(client, bad):
+        d = upload(client)
+        r = confirm_contact(client, d["candidate_id"], bad)
+>       assert r.status_code == 422, (bad, r.text)
+E       AssertionError: ('a@x.example\r
+E         Bcc: evil@x.example', '{"error":{"code":"NOT_FOUND","message":"Endpoint not found."}}')
+E       assert 404 == 422
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_hitl.py:95: AssertionError
+______ test_recipient_must_be_one_clean_address[a@x.example, b@x.example] ______
+
+client = <starlette.testclient.TestClient object at 0x7ffae22736f0>
+bad = 'a@x.example, b@x.example'
+
+    @pytest.mark.parametrize("bad", ["a@x.example\r\nBcc: evil@x.example", "a@x.example, b@x.example",
+                                     "a@x.example;b@x.example", "not-an-address", "a@x.example\n", "<a@x.example>"])
+    def test_recipient_must_be_one_clean_address(client, bad):
+        d = upload(client)
+        r = confirm_contact(client, d["candidate_id"], bad)
+>       assert r.status_code == 422, (bad, r.text)
+E       AssertionError: ('a@x.example, b@x.example', '{"error":{"code":"NOT_FOUND","message":"Endpoint not found."}}')
+E       assert 404 == 422
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_hitl.py:95: AssertionError
+______ test_recipient_must_be_one_clean_address[a@x.example;b@x.example] _______
+
+client = <starlette.testclient.TestClient object at 0x7ffae12be060>
+bad = 'a@x.example;b@x.example'
+
+    @pytest.mark.parametrize("bad", ["a@x.example\r\nBcc: evil@x.example", "a@x.example, b@x.example",
+                                     "a@x.example;b@x.example", "not-an-address", "a@x.example\n", "<a@x.example>"])
+    def test_recipient_must_be_one_clean_address(client, bad):
+        d = upload(client)
+        r = confirm_contact(client, d["candidate_id"], bad)
+>       assert r.status_code == 422, (bad, r.text)
+E       AssertionError: ('a@x.example;b@x.example', '{"error":{"code":"NOT_FOUND","message":"Endpoint not found."}}')
+E       assert 404 == 422
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_hitl.py:95: AssertionError
+___________ test_recipient_must_be_one_clean_address[not-an-address] ___________
+
+client = <starlette.testclient.TestClient object at 0x7ffae2030b90>
+bad = 'not-an-address'
+
+    @pytest.mark.parametrize("bad", ["a@x.example\r\nBcc: evil@x.example", "a@x.example, b@x.example",
+                                     "a@x.example;b@x.example", "not-an-address", "a@x.example\n", "<a@x.example>"])
+    def test_recipient_must_be_one_clean_address(client, bad):
+        d = upload(client)
+        r = confirm_contact(client, d["candidate_id"], bad)
+>       assert r.status_code == 422, (bad, r.text)
+E       AssertionError: ('not-an-address', '{"error":{"code":"NOT_FOUND","message":"Endpoint not found."}}')
+E       assert 404 == 422
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_hitl.py:95: AssertionError
+___________ test_recipient_must_be_one_clean_address[a@x.example\n] ____________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20aecf0>
+bad = 'a@x.example\n'
+
+    @pytest.mark.parametrize("bad", ["a@x.example\r\nBcc: evil@x.example", "a@x.example, b@x.example",
+                                     "a@x.example;b@x.example", "not-an-address", "a@x.example\n", "<a@x.example>"])
+    def test_recipient_must_be_one_clean_address(client, bad):
+        d = upload(client)
+        r = confirm_contact(client, d["candidate_id"], bad)
+>       assert r.status_code == 422, (bad, r.text)
+E       AssertionError: ('a@x.example
+E         ', '{"error":{"code":"NOT_FOUND","message":"Endpoint not found."}}')
+E       assert 404 == 422
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_hitl.py:95: AssertionError
+___________ test_recipient_must_be_one_clean_address[<a@x.example>] ____________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20af680>
+bad = '<a@x.example>'
+
+    @pytest.mark.parametrize("bad", ["a@x.example\r\nBcc: evil@x.example", "a@x.example, b@x.example",
+                                     "a@x.example;b@x.example", "not-an-address", "a@x.example\n", "<a@x.example>"])
+    def test_recipient_must_be_one_clean_address(client, bad):
+        d = upload(client)
+        r = confirm_contact(client, d["candidate_id"], bad)
+>       assert r.status_code == 422, (bad, r.text)
+E       AssertionError: ('<a@x.example>', '{"error":{"code":"NOT_FOUND","message":"Endpoint not found."}}')
+E       assert 404 == 422
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_hitl.py:95: AssertionError
+_________________ test_edit_recipient_to_injection_is_refused __________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae0ff1150>
+
+    def test_edit_recipient_to_injection_is_refused(client):
+>       _, p = ready_proposal(client, approve=False)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:99: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_hitl.py:66: in ready_proposal
+    assert confirm_contact(c, d["candidate_id"]).status_code == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = <starlette.testclient.TestClient object at 0x7ffae0ff1150>
+cand_id = 'CAND-525479BB30', email = None
+
+    def confirm_contact(c, cand_id, email=None):
+        if email is None:
+>           email = c.get(f"/api/candidates/{cand_id}/contact", headers=H()).json()["suggested_email"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'suggested_email'
+
+tests/test_hitl.py:59: KeyError
+________________ test_only_recruiter_member_confirms_recipient _________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20af680>
+
+    def test_only_recruiter_member_confirms_recipient(client):
+        d = upload(client)
+        r = client.post(f"/api/candidates/{d['candidate_id']}/contact/confirm", headers=H("U-MGR"),
+                        json={"email": "someone@candidates.example.invalid"})
+>       assert r.status_code == 403
+E       assert 404 == 403
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_hitl.py:108: AssertionError
+_________________________ test_contact_never_in_ledger _________________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20af350>
+
+    def test_contact_never_in_ledger(client):
+        d = upload(client)
+        confirm_contact(client, d["candidate_id"], "canary-contact@candidates.example.invalid")
+        led = client.get(f"/api/ledger?case_id={CASE}", headers=H("U-AUD")).text
+>       assert "canary-contact" not in led and "CONTACT_CONFIRMED" in led
+E       assert ('canary-contact' not in '[{"seq":1,"...e39368a07"}]'
+E         
+E         'canary-contact' is contained here:
+E           39368a07"}] and 'CONTACT_CONFIRMED' in '[{"seq":1,"ts":"2026-11-01T00:34:25Z","actor":"U-REC","type":"CASE_CREATED","case_id":"CASE-DEMO","subject":"CASE-DEM...statuses":["SOURCED","SOURCED","SOURCED"]},"hash":"ba348b1731761987016e2ce317d7996119804931d4f69b0d394bc0ce39368a07"}]')
+
+tests/test_hitl.py:115: AssertionError
+__________ test_execute_refused_when_recipient_differs_from_confirmed __________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20aee00>
+
+    def test_execute_refused_when_recipient_differs_from_confirmed(client):
+>       d, p = ready_proposal(client, approve=False)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:119: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_hitl.py:66: in ready_proposal
+    assert confirm_contact(c, d["candidate_id"]).status_code == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = <starlette.testclient.TestClient object at 0x7ffae20aee00>
+cand_id = 'CAND-C019E52774', email = None
+
+    def confirm_contact(c, cand_id, email=None):
+        if email is None:
+>           email = c.get(f"/api/candidates/{cand_id}/contact", headers=H()).json()["suggested_email"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'suggested_email'
+
+tests/test_hitl.py:59: KeyError
+_______________ test_shortlist_confirm_requires_opening_dossiers _______________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20aecf0>
+
+    def test_shortlist_confirm_requires_opening_dossiers(client):
+        upload(client)
+        r = shortlist(client, review=False)
+>       assert r.status_code == 409 and r.json()["error"]["code"] == "REVIEW_REQUIRED"
+E       assert (200 == 409)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_hitl.py:131: AssertionError
+___________________ test_another_users_review_does_not_count ___________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20af8a0>
+
+    def test_another_users_review_does_not_count(client):
+        upload(client)
+        rk = client.post(f"/api/cases/{CASE}/ranking", headers=H()).json()
+        open_all_dossiers(client, rk["rows"], uid="U-MGR")
+        r = client.post(f"/api/cases/{CASE}/ranking/{rk['version']}/confirm", headers=H())
+>       assert r.status_code == 409
+E       assert 200 == 409
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_hitl.py:139: AssertionError
+_____________________ test_upload_response_is_not_a_review _____________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20af790>
+
+    def test_upload_response_is_not_a_review(client):
+        upload(client)       # the upload returns the dossier, but that is not the recruiter opening it
+>       assert shortlist(client, review=False).status_code == 409
+E       assert 200 == 409
+E        +  where 200 = <Response [200 OK]>.status_code
+E        +    where <Response [200 OK]> = shortlist(<starlette.testclient.TestClient object at 0x7ffae20af790>, review=False)
+
+tests/test_hitl.py:144: AssertionError
+______________ test_criteria_change_after_analysis_keeps_working _______________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20af130>
+
+    def test_criteria_change_after_analysis_keeps_working(client):
+        d = upload(client)
+        crit = {"criteria": [{"label": "Python used in a software project", "kind": "skill", "weight": 60},
+                             {"label": "Version control (Git)", "kind": "skill", "weight": 40}]}
+>       r = client.put(f"/api/cases/{CASE}/criteria", headers=H(), json=crit)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:1241: in put
+    return self.request(
+/usr/local/lib/python3.13/site-packages/starlette/testclient.py:463: in request
+    return super().request(
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:980: in send
+    response = self._send_handling_auth(
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/starlette/testclient.py:360: in handle_request
+    raise exc
+/usr/local/lib/python3.13/site-packages/starlette/testclient.py:357: in handle_request
+    portal.call(self.app, scope, receive, send)
+/usr/local/lib/python3.13/site-packages/anyio/from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/concurrent/futures/_base.py:460: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/concurrent/futures/_base.py:402: in __get_result
+    raise self._exception
+/usr/local/lib/python3.13/site-packages/anyio/from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/starlette/applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+/usr/local/lib/python3.13/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+/usr/local/lib/python3.13/site-packages/starlette/middleware/base.py:197: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/main.py:385: in dispatch
+    resp = await call_next(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/starlette/middleware/base.py:173: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+/usr/local/lib/python3.13/site-packages/starlette/middleware/base.py:149: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+/usr/local/lib/python3.13/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+/usr/local/lib/python3.13/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+/usr/local/lib/python3.13/site-packages/starlette/routing.py:676: in __call__
+    await self.middleware_stack(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/routing.py:697: in app
+    await route.handle(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/routing.py:282: in handle
+    await self.app(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/routing.py:65: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+/usr/local/lib/python3.13/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+/usr/local/lib/python3.13/site-packages/starlette/routing.py:62: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+app/main.py:153: in set_criteria
+    return ok(cases.set_criteria(u, request.path_params["case_id"], await body_as(request, schemas.CriteriaSet)))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+user = {'id': 'U-REC', 'email': 'recruiter@vouch.demo', 'name': 'Sara (Recruiter)', 'role': 'recruiter'}
+case_id = 'CASE-DEMO'
+body = CriteriaSet(criteria=[Criterion(label='Python used in a software project', kind='skill', weight=60, aliases=[]), Criterion(label='Version control (Git)', kind='skill', weight=40, aliases=[])])
+
+    def set_criteria(user: dict, case_id: str, body) -> dict:
+        require_case_write(user, case_id)
+        with db.tx() as conn:
+>           conn.execute("DELETE FROM criteria WHERE case_id=?", (case_id,))
+E           sqlite3.IntegrityError: FOREIGN KEY constraint failed
+
+app/cases.py:57: IntegrityError
+_____________ test_criteria_change_supersedes_confirmed_shortlist ______________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20aead0>
+
+    def test_criteria_change_supersedes_confirmed_shortlist(client):
+        upload(client)
+        assert shortlist(client).status_code == 200
+        crit = {"criteria": [{"label": "Version control (Git)", "kind": "skill", "weight": 100}]}
+>       assert client.put(f"/api/cases/{CASE}/criteria", headers=H(), json=crit).status_code == 200
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:164: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:1241: in put
+    return self.request(
+/usr/local/lib/python3.13/site-packages/starlette/testclient.py:463: in request
+    return super().request(
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:980: in send
+    response = self._send_handling_auth(
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/httpx2/_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/starlette/testclient.py:360: in handle_request
+    raise exc
+/usr/local/lib/python3.13/site-packages/starlette/testclient.py:357: in handle_request
+    portal.call(self.app, scope, receive, send)
+/usr/local/lib/python3.13/site-packages/anyio/from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/concurrent/futures/_base.py:460: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/concurrent/futures/_base.py:402: in __get_result
+    raise self._exception
+/usr/local/lib/python3.13/site-packages/anyio/from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/starlette/applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+/usr/local/lib/python3.13/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+/usr/local/lib/python3.13/site-packages/starlette/middleware/base.py:197: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/main.py:385: in dispatch
+    resp = await call_next(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/starlette/middleware/base.py:173: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+/usr/local/lib/python3.13/site-packages/starlette/middleware/base.py:149: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+/usr/local/lib/python3.13/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+/usr/local/lib/python3.13/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+/usr/local/lib/python3.13/site-packages/starlette/routing.py:676: in __call__
+    await self.middleware_stack(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/routing.py:697: in app
+    await route.handle(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/routing.py:282: in handle
+    await self.app(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/routing.py:65: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+/usr/local/lib/python3.13/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+/usr/local/lib/python3.13/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+/usr/local/lib/python3.13/site-packages/starlette/routing.py:62: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+app/main.py:153: in set_criteria
+    return ok(cases.set_criteria(u, request.path_params["case_id"], await body_as(request, schemas.CriteriaSet)))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+user = {'id': 'U-REC', 'email': 'recruiter@vouch.demo', 'name': 'Sara (Recruiter)', 'role': 'recruiter'}
+case_id = 'CASE-DEMO'
+body = CriteriaSet(criteria=[Criterion(label='Version control (Git)', kind='skill', weight=100, aliases=[])])
+
+    def set_criteria(user: dict, case_id: str, body) -> dict:
+        require_case_write(user, case_id)
+        with db.tx() as conn:
+>           conn.execute("DELETE FROM criteria WHERE case_id=?", (case_id,))
+E           sqlite3.IntegrityError: FOREIGN KEY constraint failed
+
+app/cases.py:57: IntegrityError
+________________ test_direct_outbox_insert_refused_by_database _________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20ad480>
+
+    def test_direct_outbox_insert_refused_by_database(client):
+>       _, p = ready_proposal(client, approve=False)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_hitl.py:66: in ready_proposal
+    assert confirm_contact(c, d["candidate_id"]).status_code == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = <starlette.testclient.TestClient object at 0x7ffae20ad480>
+cand_id = 'CAND-5B09F960D2', email = None
+
+    def confirm_contact(c, cand_id, email=None):
+        if email is None:
+>           email = c.get(f"/api/candidates/{cand_id}/contact", headers=H()).json()["suggested_email"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'suggested_email'
+
+tests/test_hitl.py:59: KeyError
+_______________________ test_one_outbox_row_per_proposal _______________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20af790>
+
+    def test_one_outbox_row_per_proposal(client):
+>       _, p = ready_proposal(client)
+               ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:177: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_hitl.py:66: in ready_proposal
+    assert confirm_contact(c, d["candidate_id"]).status_code == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = <starlette.testclient.TestClient object at 0x7ffae20af790>
+cand_id = 'CAND-945B40C3AF', email = None
+
+    def confirm_contact(c, cand_id, email=None):
+        if email is None:
+>           email = c.get(f"/api/candidates/{cand_id}/contact", headers=H()).json()["suggested_email"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'suggested_email'
+
+tests/test_hitl.py:59: KeyError
+__________________ test_kill_switch_disabled_holds_everything __________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20afbd0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffae202bed0>
+
+    def test_kill_switch_disabled_holds_everything(client, monkeypatch):
+        calls = []
+        monkeypatch.setattr("requests.post", lambda *a, **k: calls.append(1) or _Resp(200))
+        monkeypatch.setattr(config, "N8N_WEBHOOK_URL", "https://n8n.example.invalid/webhook/x")
+        monkeypatch.setattr(config, "N8N_HMAC_SECRET", "s" * 32)
+        monkeypatch.setattr(config, "OUTBOUND_MODE", "disabled")
+>       _, p = ready_proposal(client)
+               ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_hitl.py:66: in ready_proposal
+    assert confirm_contact(c, d["candidate_id"]).status_code == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = <starlette.testclient.TestClient object at 0x7ffae20afbd0>
+cand_id = 'CAND-17433D80B4', email = None
+
+    def confirm_contact(c, cand_id, email=None):
+        if email is None:
+>           email = c.get(f"/api/candidates/{cand_id}/contact", headers=H()).json()["suggested_email"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'suggested_email'
+
+tests/test_hitl.py:59: KeyError
+____________________ test_kill_switch_sink_never_calls_n8n _____________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20afce0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffae202be50>
+
+    def test_kill_switch_sink_never_calls_n8n(client, monkeypatch):
+        calls = []
+        monkeypatch.setattr("requests.post", lambda *a, **k: calls.append(1) or _Resp(200))
+        monkeypatch.setattr(config, "N8N_WEBHOOK_URL", "https://n8n.example.invalid/webhook/x")
+        monkeypatch.setattr(config, "N8N_HMAC_SECRET", "s" * 32)
+        monkeypatch.setattr(config, "OUTBOUND_MODE", "sink")
+>       _, p = ready_proposal(client)
+               ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_hitl.py:66: in ready_proposal
+    assert confirm_contact(c, d["candidate_id"]).status_code == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = <starlette.testclient.TestClient object at 0x7ffae20afce0>
+cand_id = 'CAND-C8A76C06B4', email = None
+
+    def confirm_contact(c, cand_id, email=None):
+        if email is None:
+>           email = c.get(f"/api/candidates/{cand_id}/contact", headers=H()).json()["suggested_email"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'suggested_email'
+
+tests/test_hitl.py:59: KeyError
+_____________________ test_kill_switch_live_calls_n8n_once _____________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20afbd0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffae131a190>
+
+    def test_kill_switch_live_calls_n8n_once(client, monkeypatch):
+        calls = []
+        monkeypatch.setattr("requests.post", lambda *a, **k: calls.append(k) or _Resp(200))
+        monkeypatch.setattr(config, "N8N_WEBHOOK_URL", "https://n8n.example.invalid/webhook/x")
+        monkeypatch.setattr(config, "N8N_HMAC_SECRET", "s" * 32)
+        monkeypatch.setattr(config, "OUTBOUND_MODE", "live")
+>       _, p = ready_proposal(client)
+               ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:221: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_hitl.py:66: in ready_proposal
+    assert confirm_contact(c, d["candidate_id"]).status_code == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = <starlette.testclient.TestClient object at 0x7ffae20afbd0>
+cand_id = 'CAND-AC5E830163', email = None
+
+    def confirm_contact(c, cand_id, email=None):
+        if email is None:
+>           email = c.get(f"/api/candidates/{cand_id}/contact", headers=H()).json()["suggested_email"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'suggested_email'
+
+tests/test_hitl.py:59: KeyError
+_______________ test_retry_after_failure_sends_same_payload_once _______________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20af790>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffae131b230>
+
+    def test_retry_after_failure_sends_same_payload_once(client, monkeypatch):
+        sent = []
+        answers = iter([_Resp(503), _Resp(200), _Resp(200)])
+        monkeypatch.setattr("requests.post", lambda *a, **k: sent.append(k["json"]["payload_json"]) or next(answers))
+        monkeypatch.setattr(config, "N8N_WEBHOOK_URL", "https://n8n.example.invalid/webhook/x")
+        monkeypatch.setattr(config, "N8N_HMAC_SECRET", "s" * 32)
+        monkeypatch.setattr(config, "OUTBOUND_MODE", "live")
+>       _, p = ready_proposal(client)
+               ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:235: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_hitl.py:66: in ready_proposal
+    assert confirm_contact(c, d["candidate_id"]).status_code == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = <starlette.testclient.TestClient object at 0x7ffae20af790>
+cand_id = 'CAND-097D9D7CAA', email = None
+
+    def confirm_contact(c, cand_id, email=None):
+        if email is None:
+>           email = c.get(f"/api/candidates/{cand_id}/contact", headers=H()).json()["suggested_email"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'suggested_email'
+
+tests/test_hitl.py:59: KeyError
+_______________________ test_retry_needs_case_membership _______________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20aee00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffae1318130>
+
+    def test_retry_needs_case_membership(client, monkeypatch):
+        monkeypatch.setattr("requests.post", lambda *a, **k: _Resp(500))
+        monkeypatch.setattr(config, "N8N_WEBHOOK_URL", "https://n8n.example.invalid/webhook/x")
+        monkeypatch.setattr(config, "N8N_HMAC_SECRET", "s" * 32)
+        monkeypatch.setattr(config, "OUTBOUND_MODE", "live")
+>       _, p = ready_proposal(client)
+               ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_hitl.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_hitl.py:66: in ready_proposal
+    assert confirm_contact(c, d["candidate_id"]).status_code == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = <starlette.testclient.TestClient object at 0x7ffae20aee00>
+cand_id = 'CAND-C9E0BBD54A', email = None
+
+    def confirm_contact(c, cand_id, email=None):
+        if email is None:
+>           email = c.get(f"/api/candidates/{cand_id}/contact", headers=H()).json()["suggested_email"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'suggested_email'
+
+tests/test_hitl.py:59: KeyError
+___________________________ test_healthz_and_readyz ____________________________
+
+client = <starlette.testclient.TestClient object at 0x7ffae20aff00>
+
+    def test_healthz_and_readyz(client):
+>       assert client.get("/api/healthz").json() == {"ok": True}
+E       AssertionError: assert {'error': {'c... not found.'}} == {'ok': True}
+E         
+E         Left contains 1 more item:
+E         {'error': {'code': 'NOT_FOUND', 'message': 'Endpoint not found.'}}
+E         Right contains 1 more item:
+E         {'ok': True}
+E         Use -v to get more diff
+
+tests/test_hitl.py:257: AssertionError
+___________ test_bad_settings_are_refused[env0-VOUCH_OUTBOUND_MODE] ____________
+
+env = {'VOUCH_OUTBOUND_MODE': 'loud'}, problem = 'VOUCH_OUTBOUND_MODE'
+
+    @pytest.mark.parametrize("env,problem", [
+        ({"VOUCH_OUTBOUND_MODE": "loud"}, "VOUCH_OUTBOUND_MODE"),
+        ({"VOUCH_OUTBOUND_MODE": "live"}, "VOUCH_N8N_WEBHOOK_URL"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "short"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "x" * 32, "VOUCH_DEMO": "1"}, "VOUCH_DEMO"),
+        ({"VOUCH_MODEL": "openai"}, "VOUCH_OPENAI_API_KEY"),
+        ({"VOUCH_REVIEW_TOP_N": "0"}, "VOUCH_REVIEW_TOP_N"),
+    ])
+    def test_bad_settings_are_refused(env, problem):
+>       problems = config.validate(env)
+                   ^^^^^^^^^^^^^^^
+E       AttributeError: module 'app.config' has no attribute 'validate'
+
+tests/test_config_and_n8n.py:44: AttributeError
+__________ test_bad_settings_are_refused[env1-VOUCH_N8N_WEBHOOK_URL] ___________
+
+env = {'VOUCH_OUTBOUND_MODE': 'live'}, problem = 'VOUCH_N8N_WEBHOOK_URL'
+
+    @pytest.mark.parametrize("env,problem", [
+        ({"VOUCH_OUTBOUND_MODE": "loud"}, "VOUCH_OUTBOUND_MODE"),
+        ({"VOUCH_OUTBOUND_MODE": "live"}, "VOUCH_N8N_WEBHOOK_URL"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "short"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "x" * 32, "VOUCH_DEMO": "1"}, "VOUCH_DEMO"),
+        ({"VOUCH_MODEL": "openai"}, "VOUCH_OPENAI_API_KEY"),
+        ({"VOUCH_REVIEW_TOP_N": "0"}, "VOUCH_REVIEW_TOP_N"),
+    ])
+    def test_bad_settings_are_refused(env, problem):
+>       problems = config.validate(env)
+                   ^^^^^^^^^^^^^^^
+E       AttributeError: module 'app.config' has no attribute 'validate'
+
+tests/test_config_and_n8n.py:44: AttributeError
+__________ test_bad_settings_are_refused[env2-VOUCH_N8N_HMAC_SECRET] ___________
+
+env = {'VOUCH_OUTBOUND_MODE': 'live', 'VOUCH_N8N_WEBHOOK_URL': 'https://n8n.example.invalid/w'}
+problem = 'VOUCH_N8N_HMAC_SECRET'
+
+    @pytest.mark.parametrize("env,problem", [
+        ({"VOUCH_OUTBOUND_MODE": "loud"}, "VOUCH_OUTBOUND_MODE"),
+        ({"VOUCH_OUTBOUND_MODE": "live"}, "VOUCH_N8N_WEBHOOK_URL"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "short"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "x" * 32, "VOUCH_DEMO": "1"}, "VOUCH_DEMO"),
+        ({"VOUCH_MODEL": "openai"}, "VOUCH_OPENAI_API_KEY"),
+        ({"VOUCH_REVIEW_TOP_N": "0"}, "VOUCH_REVIEW_TOP_N"),
+    ])
+    def test_bad_settings_are_refused(env, problem):
+>       problems = config.validate(env)
+                   ^^^^^^^^^^^^^^^
+E       AttributeError: module 'app.config' has no attribute 'validate'
+
+tests/test_config_and_n8n.py:44: AttributeError
+__________ test_bad_settings_are_refused[env3-VOUCH_N8N_HMAC_SECRET] ___________
+
+env = {'VOUCH_OUTBOUND_MODE': 'live', 'VOUCH_N8N_WEBHOOK_URL': 'https://n8n.example.invalid/w', 'VOUCH_N8N_HMAC_SECRET': 'short'}
+problem = 'VOUCH_N8N_HMAC_SECRET'
+
+    @pytest.mark.parametrize("env,problem", [
+        ({"VOUCH_OUTBOUND_MODE": "loud"}, "VOUCH_OUTBOUND_MODE"),
+        ({"VOUCH_OUTBOUND_MODE": "live"}, "VOUCH_N8N_WEBHOOK_URL"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "short"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "x" * 32, "VOUCH_DEMO": "1"}, "VOUCH_DEMO"),
+        ({"VOUCH_MODEL": "openai"}, "VOUCH_OPENAI_API_KEY"),
+        ({"VOUCH_REVIEW_TOP_N": "0"}, "VOUCH_REVIEW_TOP_N"),
+    ])
+    def test_bad_settings_are_refused(env, problem):
+>       problems = config.validate(env)
+                   ^^^^^^^^^^^^^^^
+E       AttributeError: module 'app.config' has no attribute 'validate'
+
+tests/test_config_and_n8n.py:44: AttributeError
+________________ test_bad_settings_are_refused[env4-VOUCH_DEMO] ________________
+
+env = {'VOUCH_OUTBOUND_MODE': 'live', 'VOUCH_N8N_WEBHOOK_URL': 'https://n8n.example.invalid/w', 'VOUCH_N8N_HMAC_SECRET': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'VOUCH_DEMO': '1'}
+problem = 'VOUCH_DEMO'
+
+    @pytest.mark.parametrize("env,problem", [
+        ({"VOUCH_OUTBOUND_MODE": "loud"}, "VOUCH_OUTBOUND_MODE"),
+        ({"VOUCH_OUTBOUND_MODE": "live"}, "VOUCH_N8N_WEBHOOK_URL"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "short"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "x" * 32, "VOUCH_DEMO": "1"}, "VOUCH_DEMO"),
+        ({"VOUCH_MODEL": "openai"}, "VOUCH_OPENAI_API_KEY"),
+        ({"VOUCH_REVIEW_TOP_N": "0"}, "VOUCH_REVIEW_TOP_N"),
+    ])
+    def test_bad_settings_are_refused(env, problem):
+>       problems = config.validate(env)
+                   ^^^^^^^^^^^^^^^
+E       AttributeError: module 'app.config' has no attribute 'validate'
+
+tests/test_config_and_n8n.py:44: AttributeError
+___________ test_bad_settings_are_refused[env5-VOUCH_OPENAI_API_KEY] ___________
+
+env = {'VOUCH_MODEL': 'openai'}, problem = 'VOUCH_OPENAI_API_KEY'
+
+    @pytest.mark.parametrize("env,problem", [
+        ({"VOUCH_OUTBOUND_MODE": "loud"}, "VOUCH_OUTBOUND_MODE"),
+        ({"VOUCH_OUTBOUND_MODE": "live"}, "VOUCH_N8N_WEBHOOK_URL"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "short"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "x" * 32, "VOUCH_DEMO": "1"}, "VOUCH_DEMO"),
+        ({"VOUCH_MODEL": "openai"}, "VOUCH_OPENAI_API_KEY"),
+        ({"VOUCH_REVIEW_TOP_N": "0"}, "VOUCH_REVIEW_TOP_N"),
+    ])
+    def test_bad_settings_are_refused(env, problem):
+>       problems = config.validate(env)
+                   ^^^^^^^^^^^^^^^
+E       AttributeError: module 'app.config' has no attribute 'validate'
+
+tests/test_config_and_n8n.py:44: AttributeError
+____________ test_bad_settings_are_refused[env6-VOUCH_REVIEW_TOP_N] ____________
+
+env = {'VOUCH_REVIEW_TOP_N': '0'}, problem = 'VOUCH_REVIEW_TOP_N'
+
+    @pytest.mark.parametrize("env,problem", [
+        ({"VOUCH_OUTBOUND_MODE": "loud"}, "VOUCH_OUTBOUND_MODE"),
+        ({"VOUCH_OUTBOUND_MODE": "live"}, "VOUCH_N8N_WEBHOOK_URL"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "short"}, "VOUCH_N8N_HMAC_SECRET"),
+        ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+          "VOUCH_N8N_HMAC_SECRET": "x" * 32, "VOUCH_DEMO": "1"}, "VOUCH_DEMO"),
+        ({"VOUCH_MODEL": "openai"}, "VOUCH_OPENAI_API_KEY"),
+        ({"VOUCH_REVIEW_TOP_N": "0"}, "VOUCH_REVIEW_TOP_N"),
+    ])
+    def test_bad_settings_are_refused(env, problem):
+>       problems = config.validate(env)
+                   ^^^^^^^^^^^^^^^
+E       AttributeError: module 'app.config' has no attribute 'validate'
+
+tests/test_config_and_n8n.py:44: AttributeError
+___________________________ test_good_settings_pass ____________________________
+
+    def test_good_settings_pass():
+>       assert config.validate({}) == []
+               ^^^^^^^^^^^^^^^
+E       AttributeError: module 'app.config' has no attribute 'validate'
+
+tests/test_config_and_n8n.py:49: AttributeError
+___________________ test_problems_never_print_secret_values ____________________
+
+    def test_problems_never_print_secret_values():
+>       problems = config.validate({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
+                   ^^^^^^^^^^^^^^^
+                                    "VOUCH_N8N_HMAC_SECRET": "tiny-SECRET-canary"})
+E       AttributeError: module 'app.config' has no attribute 'validate'
+
+tests/test_config_and_n8n.py:55: AttributeError
+______________________ test_default_outbound_mode_is_sink ______________________
+
+    def test_default_outbound_mode_is_sink():
+>       assert config.validate({}) == [] and config.outbound_mode_from({}) == "sink"
+               ^^^^^^^^^^^^^^^
+E       AttributeError: module 'app.config' has no attribute 'validate'
+
+tests/test_config_and_n8n.py:61: AttributeError
+________________ test_seed_password_is_random_without_demo_flag ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffae1f98360>
+
+    def test_seed_password_is_random_without_demo_flag(monkeypatch):
+        from app import seed as seedmod
+        monkeypatch.delenv("VOUCH_DEMO", raising=False)
+        msg = seedmod.seed()
+>       assert "demo1234" not in msg
+E       AssertionError: assert 'demo1234' not in 'Seeded demo...r@vouch.demo'
+E         
+E         'demo1234' is contained here:
+E           Seeded demo users (password demo1234): recruiter@vouch.demo, manager@vouch.demo, admin@vouch.demo, auditor@vouch.demo
+E         ?                             ++++++++
+
+tests/test_config_and_n8n.py:69: AssertionError
+___________ test_n8n_does_not_append_text_the_manager_never_approved ___________
+
+wf = {'name': 'Vouch – deliver approved action', 'nodes': [{'parameters': {'httpMethod': 'POST', 'path': 'vouch-deliver', '...)': {'main': [[{'node': 'Reply: delivered', 'type': 'main', 'index': 0}]]}}, 'settings': {'executionOrder': 'v1'}, ...}
+
+    def test_n8n_does_not_append_text_the_manager_never_approved(wf):
+        # emailSend >= 2.1 appends an n8n attribution line unless appendAttribution is false
+        # (packages/nodes-base/nodes/EmailSend/v2/send.operation.ts).
+        opts = _send(wf)[0]["parameters"].get("options", {})
+>       assert opts.get("appendAttribution") is False
+E       AssertionError: assert None is False
+E        +  where None = <built-in method get of dict object at 0x7ffae1387980>('appendAttribution')
+E        +    where <built-in method get of dict object at 0x7ffae1387980> = {}.get
+
+tests/test_config_and_n8n.py:112: AssertionError
+__________ test_signature_comparison_does_not_compare_raw_signatures ___________
+
+wf = {'name': 'Vouch – deliver approved action', 'nodes': [{'parameters': {'httpMethod': 'POST', 'path': 'vouch-deliver', '...)': {'main': [[{'node': 'Reply: delivered', 'type': 'main', 'index': 0}]]}}, 'settings': {'executionOrder': 'v1'}, ...}
+
+    def test_signature_comparison_does_not_compare_raw_signatures(wf):
+        """The If node's equality is not constant-time, so it must compare HMACs of the two
+        signatures (double HMAC), never the raw computed signature against the header."""
+        ifs = [n for n in wf["nodes"] if n["type"] == "n8n-nodes-base.if"]
+        assert len(ifs) == 1
+        blob = json.dumps(ifs[0]["parameters"])
+>       assert "x-vouch-signature" not in blob.lower()
+E       assert 'x-vouch-signature' not in '{"condition...ptions": {}}'
+E         
+E         'x-vouch-signature' is contained here:
+E           .headers['x-vouch-signature'] }}", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"}, "options": {}}
+E         ?           +++++++++++++++++
+
+tests/test_config_and_n8n.py:121: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_hitl.py::test_proposal_refused_until_recipient_confirmed - ...
+FAILED tests/test_hitl.py::test_cv_email_is_only_a_suggestion - KeyError: 'su...
+FAILED tests/test_hitl.py::test_recipient_must_be_one_clean_address[a@x.example\r\nBcc: evil@x.example]
+FAILED tests/test_hitl.py::test_recipient_must_be_one_clean_address[a@x.example, b@x.example]
+FAILED tests/test_hitl.py::test_recipient_must_be_one_clean_address[a@x.example;b@x.example]
+FAILED tests/test_hitl.py::test_recipient_must_be_one_clean_address[not-an-address]
+FAILED tests/test_hitl.py::test_recipient_must_be_one_clean_address[a@x.example\n]
+FAILED tests/test_hitl.py::test_recipient_must_be_one_clean_address[<a@x.example>]
+FAILED tests/test_hitl.py::test_edit_recipient_to_injection_is_refused - KeyE...
+FAILED tests/test_hitl.py::test_only_recruiter_member_confirms_recipient - as...
+FAILED tests/test_hitl.py::test_contact_never_in_ledger - assert ('canary-con...
+FAILED tests/test_hitl.py::test_execute_refused_when_recipient_differs_from_confirmed
+FAILED tests/test_hitl.py::test_shortlist_confirm_requires_opening_dossiers
+FAILED tests/test_hitl.py::test_another_users_review_does_not_count - assert ...
+FAILED tests/test_hitl.py::test_upload_response_is_not_a_review - assert 200 ...
+FAILED tests/test_hitl.py::test_criteria_change_after_analysis_keeps_working
+FAILED tests/test_hitl.py::test_criteria_change_supersedes_confirmed_shortlist
+FAILED tests/test_hitl.py::test_direct_outbox_insert_refused_by_database - Ke...
+FAILED tests/test_hitl.py::test_one_outbox_row_per_proposal - KeyError: 'sugg...
+FAILED tests/test_hitl.py::test_kill_switch_disabled_holds_everything - KeyEr...
+FAILED tests/test_hitl.py::test_kill_switch_sink_never_calls_n8n - KeyError: ...
+FAILED tests/test_hitl.py::test_kill_switch_live_calls_n8n_once - KeyError: '...
+FAILED tests/test_hitl.py::test_retry_after_failure_sends_same_payload_once
+FAILED tests/test_hitl.py::test_retry_needs_case_membership - KeyError: 'sugg...
+FAILED tests/test_hitl.py::test_healthz_and_readyz - AssertionError: assert {...
+FAILED tests/test_config_and_n8n.py::test_bad_settings_are_refused[env0-VOUCH_OUTBOUND_MODE]
+FAILED tests/test_config_and_n8n.py::test_bad_settings_are_refused[env1-VOUCH_N8N_WEBHOOK_URL]
+FAILED tests/test_config_and_n8n.py::test_bad_settings_are_refused[env2-VOUCH_N8N_HMAC_SECRET]
+FAILED tests/test_config_and_n8n.py::test_bad_settings_are_refused[env3-VOUCH_N8N_HMAC_SECRET]
+FAILED tests/test_config_and_n8n.py::test_bad_settings_are_refused[env4-VOUCH_DEMO]
+FAILED tests/test_config_and_n8n.py::test_bad_settings_are_refused[env5-VOUCH_OPENAI_API_KEY]
+FAILED tests/test_config_and_n8n.py::test_bad_settings_are_refused[env6-VOUCH_REVIEW_TOP_N]
+FAILED tests/test_config_and_n8n.py::test_good_settings_pass - AttributeError...
+FAILED tests/test_config_and_n8n.py::test_problems_never_print_secret_values
+FAILED tests/test_config_and_n8n.py::test_default_outbound_mode_is_sink - Att...
+FAILED tests/test_config_and_n8n.py::test_seed_password_is_random_without_demo_flag
+FAILED tests/test_config_and_n8n.py::test_n8n_does_not_append_text_the_manager_never_approved
+FAILED tests/test_config_and_n8n.py::test_signature_comparison_does_not_compare_raw_signatures
+38 failed, 4 passed in 6.61s

@@ -174,6 +174,9 @@ def connect() -> sqlite3.Connection:
         interview_columns = {row["name"] for row in _conn.execute("PRAGMA table_info(interviews)").fetchall()}
         if interview_columns and "completed_at" not in interview_columns:
             _conn.execute("ALTER TABLE interviews ADD COLUMN completed_at TEXT")
+        _conn.execute("PRAGMA busy_timeout=5000")   # RB-03: wait for a lock instead of failing at once
+        from . import migrations
+        migrations.apply(_conn)
     return _conn
 
 
@@ -207,7 +210,8 @@ def wipe() -> None:
     with _lock:
         conn.execute("DROP TRIGGER IF EXISTS ledger_no_update")
         conn.execute("DROP TRIGGER IF EXISTS ledger_no_delete")
-        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+                                                "AND name <> 'schema_migrations'")]
         conn.execute("PRAGMA foreign_keys=OFF")
         for t in tables:
             conn.execute(f"DELETE FROM {t}")

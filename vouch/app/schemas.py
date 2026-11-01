@@ -271,3 +271,8 @@ class FormatDecision(Strict):
 
 class ConductedBy(Strict):
     by: Literal["ai", "human"]
+
+
+class ContactConfirm(Strict):
+    """HI-04/D11: the address a recruiter confirms for a candidate (validated in contacts.clean_address)."""
+    email: str = Field(max_length=254)

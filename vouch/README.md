@@ -11,12 +11,15 @@ You need **Python 3.11 or newer**.
 ```bash
 cd vouch
 pip install -r requirements.txt
+export VOUCH_DEMO_MODE=1        # Windows (cmd): set VOUCH_DEMO_MODE=1
 python -m app --seed --yes      # confirms the wipe; creates users, a case and 10 synthetic CVs
+python -m app
 ```
 
-Open **http://127.0.0.1:8000** and sign in with a demo account. Every demo password is
-`demo1234`. Set `VOUCH_DEMO_MODE=1` to show the account shortcuts on the sign-in page;
-the shortcuts are hidden by default.
+Open **http://127.0.0.1:8000** and sign in with a demo account. With `VOUCH_DEMO_MODE=1`
+every demo password is `demo1234` and the sign-in page shows account shortcuts. Without it,
+`--seed` prints one random password once (it is not stored anywhere), and the shortcuts are hidden.
+`VOUCH_DEMO_MODE=1` is refused together with `VOUCH_OUTBOUND_MODE=live`.
 
 | Demo user | Role | What they can do |
 |---|---|---|
