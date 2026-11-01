@@ -23,6 +23,19 @@ PATTERNS = {
 }
 SKIP_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".zip", ".db"}
 SKIP_FILES = {"tools/secret_scan.py", "vouch/tests/test_secret_scan.py"}
+# Reviewed exceptions for HISTORY findings only: "<commit-prefix> <path> <reason>" per line.
+# Each entry names one commit and one file, so the same mistake anywhere else is still reported.
+ALLOW_FILE = Path(__file__).with_name("secret_scan_allow.txt")
+
+
+def load_allow(path: Path = ALLOW_FILE) -> set[tuple[str, str]]:
+    out = set()
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            parts = line.split(None, 2)
+            if len(parts) == 3 and not line.lstrip().startswith("#") and len(parts[0]) >= 8:
+                out.add((parts[0][:8], parts[1]))
+    return out
 
 
 def scan_text(text: str) -> list[tuple[int, str]]:
@@ -56,7 +69,8 @@ def scan_tree(root: Path) -> list[str]:
     return found
 
 
-def scan_history(root: Path) -> list[str]:
+def scan_history(root: Path, allow: set[tuple[str, str]] | None = None) -> list[str]:
+    allow = load_allow() if allow is None else allow
     try:
         log = subprocess.run(["git", "log", "-p", "--all", "--no-color", "--format=commit %H"], cwd=str(root),
                              capture_output=True, text=True, errors="replace", check=True).stdout
@@ -68,7 +82,8 @@ def scan_history(root: Path) -> list[str]:
             commit = line[7:15]
         elif line.startswith("+++ b/"):
             path = line[6:]
-        elif line.startswith("+") and not line.startswith("+++") and path not in SKIP_FILES:
+        elif line.startswith("+") and not line.startswith("+++") and path not in SKIP_FILES \
+                and (commit, path) not in allow:
             for _, name in scan_text(line[1:]):
                 found.append(f"history {commit} {path}: {name}")
     return sorted(set(found))

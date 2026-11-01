@@ -52,3 +52,13 @@ def test_key_removed_from_tree_is_still_found_in_history(repo):
 
 def test_this_repository_is_clean():
     assert secret_scan.main(["--path", str(REPO)]) == 0
+
+
+def test_allow_list_skips_only_the_named_commit_and_file(repo):
+    for name in ("settings.env", "other.env"):
+        (repo / name).write_text(FAKE_HMAC_LINE + "\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "two files")
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True).stdout.strip()
+    found = secret_scan.scan_history(repo, allow={(head[:8], "settings.env")})
+    assert len(found) == 1 and "other.env" in found[0]
