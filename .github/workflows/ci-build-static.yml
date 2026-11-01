@@ -1,0 +1,31 @@
+name: CI build static bundle (temporary)
+on:
+  push:
+    branches: ['ci-build/**']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: vouch/frontend/package-lock.json
+      - run: npm ci --ignore-scripts
+        working-directory: vouch/frontend
+      - run: npm run typecheck
+        working-directory: vouch/frontend
+      - run: npm run lint
+        working-directory: vouch/frontend
+      - run: npm run build
+        working-directory: vouch/frontend
+      - name: Commit the built bundle back to this branch
+        run: |
+          git config user.name "ci-build"
+          git config user.email "ci-build@users.noreply.github.com"
+          git add -A vouch/static/app
+          git commit -m "build: static bundle from CI" || echo "nothing to commit"
+          git push
