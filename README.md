@@ -6,7 +6,7 @@ Our entry for the **Secure AI HR System** hackathon.
 
 | Folder | What's inside |
 |---|---|
-| [`vouch/`](vouch/README.md) | **The app.** Backend, screens, tests. Start here. |
+| [`vouch/`](vouch/README.md) | **The app.** Backend, screens, tests, and the HR assistants (email summary, reply drafts, replies waiting, free interview slots, employee questions). Start here. |
 | [`interview-chat/`](interview-chat/README.md) | First-round interview by chat with a timer: answers saved for HR, approvals, evidence report, audit log |
 | [`sentinel_hr/`](sentinel_hr/README.md) | Runs 27 attack scenarios (24 original plus 3 route-privacy scenarios) against Vouch |
 | [`sentinel/`](sentinel/documentation/scenario_catalog.md) | The attack scenario library and synthetic CVs (unchanged) |
@@ -22,7 +22,7 @@ VOUCH_DEMO_MODE=1 python -m app                  # later starts keep the data
 # open http://127.0.0.1:8000  (with VOUCH_DEMO_MODE=1 the password for all demo users is demo1234)
 ```
 
-Latest local validation (2026-11-01): **149 backend tests passed** (`cd vouch && python -m pytest -q`), **45 interview-chat tests passed**, **27/27 SENTINEL scenarios passed with the `stub` model** (no real-model run yet), and the protection-removal drill turned **15/15** removed protections red (`python -m tools.drill`). The 21 Playwright smoke tests are from the previous frontend change and were not re-run here. These are synthetic demo checks, not a claim of production security.
+Latest local validation (2026-11-01): **222 backend tests passed** (`cd vouch && python -m pytest -q`), **45 interview-chat tests passed**, **27/27 SENTINEL scenarios passed with the `stub` model** (no real-model run yet), and the protection-removal drill turned **21/21** removed protections red (`python -m tools.drill`). The 21 Playwright smoke tests are from an earlier frontend change and were not re-run here; the new screens were checked with a headless-browser walk-through. These are synthetic demo checks, not a claim of production security.
 
 The role-aware React workspace is available at `/`, with cases, evidence, ranking,
 approvals, ledger, assurance, and administration. The demo seed includes ten

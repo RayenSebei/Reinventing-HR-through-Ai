@@ -121,6 +121,24 @@ The approval digest is `SHA-256(UTF-8(canonical(payload)))`; canonical JSON uses
 
 Original CVs stay on the Vouch server (`data/originals`, read-only). Only visible text with personal data removed is sent to an AI model. The ledger stores IDs and hashes, never CV text or contact details. `VOUCH_RETENTION_DAYS` (default 180) controls automatic purge at startup and via `python -m app.retention`; candidate erasure also removes the original document, extraction, and dossier while retaining the ledger.
 
+## HR assistants (no AI model needed)
+
+Five helpers sit in the dashboard. They run offline with rules and search, and none of them can send
+anything: every message they prepare is a normal draft that the hiring manager approves.
+
+| Assistant | Where | What it does | Switch |
+|---|---|---|---|
+| **Free interview slots** | Interviews → Schedule interview → *Suggest free times* | Finds free times in the interviewer's interviews and meetings and the candidate's interviews: weekdays, working hours, no lunch, 10-minute buffer. Click one to fill the start time. | `FEAT_SLOTS_MODE` |
+| **Waiting for a reply** | Follow-ups | Lists sent messages the candidate has not answered; after `VOUCH_REPLY_WAIT_DAYS` (3) they are overdue. *They replied* records it; *Draft follow-up* creates an approval-bound draft and a task. A message from the candidate's confirmed address in the AI Inbox also counts as a reply. | `FEAT_REPLY_TRACKING_MODE` |
+| **Email summary (AI Inbox)** | AI Inbox | Groups messages by category and urgency, summarises them (first sentences, personal data hidden) and flags hidden HTML, instructions aimed at an AI, phishing language, look-alike domains, disguised links and attachments. Links and attachments are never opened. Add real `.eml` files with *Add an email*. No mailbox is connected. | `FEAT_INBOX_MODE` |
+| **Grounded reply drafts** | AI Inbox → *Draft a reply* | Builds a reply from the role title, the candidate's next interview and free slots only. It never copies the candidate's text or links, gives a neutral reply on pay, decisions, health or other candidates, and refuses flagged or unconfirmed senders. A code check rejects any date, number, address or link that is not backed by a fact. | `FEAT_REPLIES_MODE` |
+| **HR Assistant** | HR Assistant (every role) | Answers employee questions only by quoting a section of the handbook in `policies/` (a fictional company) and naming it. Abstains when the handbook does not cover the question or when it is about someone's private situation. English and French. | `FEAT_HR_QA_MODE` |
+
+Each switch is `on` (default) or `off`; `off` makes the routes answer `404 FEATURE_OFF`.
+Measured on the repository's own question sets (`tests/test_hr_qa.py`): 18/18 tuning questions,
+15/16 held-out questions answered with the right section (1 wrong: "When do I have to be at work?"
+cites *Remote work*), 6/6 out-of-scope questions refused. These are small synthetic sets, not a benchmark.
+
 ## Honest limits
 
 - Tested on synthetic CVs only. Detection was measured on the repository's fixtures, not on real CVs.
@@ -130,12 +148,14 @@ Original CVs stay on the Vouch server (`data/originals`, read-only). Only visibl
 - The ledger is tamper-*evident*: someone with database access could rebuild the whole chain.
 - SENTINEL's attacks are written by the same team. "Independent" testing would need outside contributors.
 - SQLite and one server process: fine for a demo, not for many users.
+- The HR assistants use rules and search, not an AI model. Summaries are extracts, replies are fixed wording
+  filled with facts, and the inbox only contains synthetic messages or `.eml` files someone adds.
 
 ## Dashboard
 
 The React workspace is available at `/`: Command Center, cases and evidence,
 rankings and shortlist, compare, actions and outbox, approvals, ledger, assurance,
-and HR administration. The legacy route falls through to the same client-side app.
+the HR assistants (AI Inbox, free slots, replies waiting, HR Assistant) and HR administration. The legacy route falls through to the same client-side app.
 All workspace APIs are authenticated and role-scoped.
 
 The committed `static/app/` build runs with Python alone. To develop the frontend:
@@ -181,7 +201,7 @@ Dependency versions are pinned in `frontend/package.json` and `package-lock.json
 A minimatch 11.0.1 override addresses the lint tool's glob amplification advisory.
 Direct dependency versions and licences are in [frontend dependencies](../docs/frontend-dependencies.md).
 
-Latest validation (2026-11-01): 149 backend tests passed (including all 27 SENTINEL scenarios, `stub` model),
+Latest validation (2026-11-01): 222 backend tests passed (including all 27 SENTINEL scenarios, `stub` model),
 frontend typecheck/lint/build passed, and 21 Playwright tests passed with no CSP
 violations. Playwright captures 16 role/resolution/theme screenshots under
 `frontend/test-results/screenshots/`.

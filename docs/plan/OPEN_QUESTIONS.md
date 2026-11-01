@@ -6,3 +6,4 @@
 4. **Remove Duplicates in n8n:** test on your pinned n8n what the webhook answers when a duplicate is dropped; then decide whether to add it (RESIDUAL_RISK.md row 1).
 5. **Master plan Section 12 decisions** (axes that ship, clock budget, real model and budget, FR/AR template reviewers, fairness ε, approver personas, mailbox and calendar sources, holiday data owner, interview-chat in the pitch) are still unanswered; defaults apply.
 6. **JWT secret:** still random per process unless `VOUCH_JWT_SECRET` is set (WA-05, Phase 8). OK for the demo?
+- **Schedule-dialog CSP message (pre-existing).** Opening *Schedule interview* logs one "Applying inline style violates ... style-src 'self'" console message. It also happens on `main`, so it comes from the existing dialog component, not from the HR assistants. The page works; the blocked style is cosmetic. Worth a look by whoever owns the dialog.

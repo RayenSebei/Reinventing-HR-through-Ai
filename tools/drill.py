@@ -95,6 +95,36 @@ DRILL = {
         '        w, h = page.get_size()     # what pdfium will actually rasterize\n',
         '        w, h = 1.0, 1.0\n',
         ["tests/test_review_findings.py::test_page_preview_refuses_oversized_pages"]),
+    "free slots avoid busy time (F4)": (
+        "app/slots.py",
+        '                if a >= earliest and not crosses_lunch and not clash:\n',
+        '                if a >= earliest and not crosses_lunch:\n',
+        ["tests/test_slots.py::test_slots_are_free_future_and_inside_working_hours"]),
+    "inbox drops hidden HTML text (F1)": (
+        "app/inbox.py",
+        '        if any(self.stack):\n',
+        '        if False:\n',
+        ["tests/test_inbox_replies.py::test_hidden_html_and_injection_are_flagged_and_removed"]),
+    "no reply drafts to flagged messages (F2)": (
+        "app/replies.py",
+        '    if m["category"] == "security_review":\n',
+        '    if False:\n',
+        ["tests/test_inbox_replies.py::test_no_reply_to_flagged_or_unconfirmed_senders"]),
+    "reply drafts never carry sensitive answers (F2)": (
+        "app/replies.py",
+        '    if sensitive:\n        lines.append("A member of the recruitment team will reply to you personally about this.")\n    elif',
+        '    if False:\n        pass\n    elif',
+        ["tests/test_inbox_replies.py::test_sensitive_topics_get_a_neutral_holding_reply"]),
+    "HR assistant abstains when the handbook does not match (F5)": (
+        "app/hr_qa.py",
+        '    if best_score < MIN_SCORE or coverage < MIN_COVERAGE or overall < 0.34:\n',
+        '    if False:\n',
+        ["tests/test_hr_qa.py::test_out_of_scope_set_never_gets_a_handbook_answer"]),
+    "no follow-up once the candidate replied (F3)": (
+        "app/reply_tracking.py",
+        '    if db.one("SELECT 1 FROM outbox_replies WHERE outbox_id=?", (oid,)):\n        raise conflict("ALREADY_REPLIED"',
+        '    if False:\n        raise conflict("ALREADY_REPLIED"',
+        ["tests/test_reply_tracking.py::test_no_follow_up_after_the_candidate_replied"]),
     "n8n attribution switched off (HL-04)": (
         "../n8n/vouch-deliver.workflow.json",
         '"appendAttribution": false',
