@@ -52,3 +52,6 @@ python -m tools.secret_scan --history
 - PyPI is blocked in both environments available to the agent: dependency hashes (SC-01) and an exact-pin run need a machine with PyPI. Run `python -m tools.verify --all` on the Windows demo PC.
 - n8n cannot be run here: import the workflow once (N8N_VERIFICATION.md).
 - The companion `docs/security/HARDENING_PROMPT.md` is not in the repo; security IDs were applied from the master plan's wording.
+
+## HR assistants — DONE (branch `feature/hr-assistants`)
+F1 email summary, F2 grounded replies, F3 replies waiting, F4 free slots, F5 HR assistant: built, in the dashboard, behind switches. vouch **222 passed**, interview-chat 45, SENTINEL 27/27 (`stub`), drill **21/21**, secret scan clean, browser walk-through clean. Not built: a real mailbox connection and a real-model run.

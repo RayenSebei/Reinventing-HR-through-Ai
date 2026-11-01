@@ -16,3 +16,4 @@
 | 2026-11-01 | HI-07, TQ-03, TQ-06, TQ-04, DL-06 | `VOUCH_FUZZ_SEQUENCES` | new `tools/`, tests, CI | fuzzer, drill 9/9, 4 scanner tests | green | delete files; restore `checks.yml` |
 | 2026-11-01 | MERGE | — | merge `main` into `vouch-hardening`; dashboard recipient step | 122 / 36 / 27 green | green | `git revert -m 1 <merge sha>` on `vouch-hardening` |
 | 2026-11-01 | REVIEW-FIX | — | approval hash binding, subject controls, login throttle, extraction redaction, negation, PDF preview guard, interview-chat key | 25 + 9 red → green | green | revert the `fix/review-findings` merge |
+| 2026-11-01 | F1–F5 | `FEAT_SLOTS_MODE`, `FEAT_REPLY_TRACKING_MODE`, `FEAT_INBOX_MODE`, `FEAT_REPLIES_MODE`, `FEAT_HR_QA_MODE` | new modules `slots`, `reply_tracking`, `inbox`, `replies`, `hr_qa`; migration 6; gateway seam `composed`; dashboard pages | 73 new tests, 6 drill rows | green | set the five flags to `off`, or revert the merge |

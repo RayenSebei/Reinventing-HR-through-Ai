@@ -6,9 +6,8 @@ import { useFieldArray, useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronRight, CircleCheck, Clock3, Download, FileUp, ListTodo, Mail, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2, Upload, Users } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronRight, CircleCheck, Clock3, Download, FileUp, ListTodo, Plus, RefreshCw, ShieldCheck, Trash2, Upload, Users } from 'lucide-react'
 import { api, apiBlob, ApiError, humanize, type Session } from '@/lib/api'
-import { demoInboxMessages } from '@/lib/demoInbox'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -21,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Agenda } from './Agenda'
+import { AwaitingReplies, SlotSuggestions } from './Assistants'
 
 z.config({ jitless: true })
 
@@ -64,19 +64,19 @@ type FollowUpTask = {
   candidate_pseudonym?: string; case_title?: string; assignee_name?: string
 }
 
-function PageTitle({ title, description, actions }: { title: string; description: string; actions?: React.ReactNode }) {
+export function PageTitle({ title, description, actions }: { title: string; description: string; actions?: React.ReactNode }) {
   return <div className="page-title"><div><h1>{title}</h1><p>{description}</p></div>{actions && <div className="page-actions">{actions}</div>}</div>
 }
 
-function QueryError({ message, retry }: { message: string; retry?: () => void }) {
+export function QueryError({ message, retry }: { message: string; retry?: () => void }) {
   return <div className="workspace-error" role="alert"><AlertTriangle size={20}/><div><strong>We couldn’t load this view.</strong><p>{message}</p></div>{retry && <Button variant="outline" onClick={retry}>Try again</Button>}</div>
 }
 
-function LoadingRows({ count = 4 }: { count?: number }) {
+export function LoadingRows({ count = 4 }: { count?: number }) {
   return <div className="workspace-loading" role="status" aria-label="Loading"><Skeleton className="h-8 w-1/3"/>{Array.from({ length: count }, (_, i) => <Skeleton className="h-12 w-full" key={i}/>)}</div>
 }
 
-function NoRows({ title, text }: { title: string; text: string }) {
+export function NoRows({ title, text }: { title: string; text: string }) {
   return <div className="workspace-empty"><CircleCheck size={23}/><strong>{title}</strong><p>{text}</p></div>
 }
 
@@ -182,39 +182,6 @@ export function CandidatesPage({ session }: Props) {
           </div>
         </> : <NoRows title="No candidates found" text={search ? 'Try another search term.' : 'Upload a CV in a recruitment case to add candidates.'}/>}
     </section>
-  </section>
-}
-
-export function InboxPage({ session }: Props) {
-  const [selectedId, setSelectedId] = useState(demoInboxMessages[0]?.id ?? '')
-  const [filter, setFilter] = useState('All')
-  const selected = demoInboxMessages.find(message => message.id === selectedId)
-  const visible = demoInboxMessages.filter(message => filter === 'All' || message.category === filter)
-
-  return <section>
-    <PageTitle title="AI Inbox" description="A preview of a future inbox workflow; this workspace is not connected to a mailbox."/>
-    <div className="warning-box inbox-demo-notice" role="note"><Mail size={18}/><span><strong>Demonstration inbox.</strong> All messages and summaries are synthetic. No mailbox, AI model, approval, or delivery is connected for this {humanize(session.user.role)} session.</span></div>
-    <div className="inbox-layout">
-      <section className="surface inbox-list-panel" aria-label="Synthetic messages">
-        <div className="inbox-filters">{['All', ...new Set(demoInboxMessages.map(message => message.category))].map(category =>
-          <Button key={category} size="sm" variant={filter === category ? 'default' : 'outline'} onClick={() => {
-            setFilter(category)
-            const first = category === 'All' ? demoInboxMessages[0] : demoInboxMessages.find(message => message.category === category)
-            if (first) setSelectedId(first.id)
-          }}>{category}</Button>)}</div>
-        {visible.length ? visible.map(message => <button key={message.id} type="button" className={`inbox-message ${selectedId === message.id ? 'selected' : ''}`}
-          onClick={() => setSelectedId(message.id)} aria-pressed={selectedId === message.id}>
-          <span className="inbox-message-heading"><strong dir="auto">{message.sender}</strong><time>{new Date(message.receivedAt).toLocaleDateString()}</time></span>
-          <span className="inbox-message-subject" dir="auto">{message.subject}</span><span className="inbox-message-preview" dir="auto">{message.body}</span>
-        </button>) : <NoRows title="No messages in this filter" text="Select another category to view synthetic examples."/>}
-      </section>
-      {selected ? <section className="surface inbox-detail">
-        <div className="panel-heading"><div><Badge variant="outline">Synthetic message</Badge><h2 dir="auto">{selected.subject}</h2><p dir="auto">{selected.sender} · {selected.category}</p></div><Mail size={21}/></div>
-        <div className="inbox-message-body" dir="auto">{selected.body}</div>
-        <section className="inbox-suggestion"><h3><Sparkles size={16}/> Example summary</h3><p dir="auto">{selected.summary}</p><small>Prewritten sample; no AI request was made.</small></section>
-        <section className="inbox-suggestion"><h3>Example reply</h3><p dir="auto">{selected.reply}</p><small>This text is a demo only. It cannot be approved or sent.</small></section>
-      </section> : <section className="surface inbox-detail"><NoRows title="Select a message" text="Choose one of the synthetic messages to review the demonstration summary."/></section>}
-    </div>
   </section>
 }
 
@@ -1007,6 +974,8 @@ export function InterviewsPage({ session }: Props) {
           <option value="">Select an interviewer</option>{selectedCase?.members.map(member => <option value={member.id} key={member.id}>{member.name} · {humanize(member.role)}</option>)}</select></label>
         <label>Interview type<select value={interviewType} onChange={event => setInterviewType(event.target.value)}>
           {['screening', 'technical', 'behavioral', 'final', 'other'].map(value => <option value={value} key={value}>{humanize(value)}</option>)}</select></label>
+        <SlotSuggestions session={session} caseId={caseId} candidateId={candidateId} interviewerId={interviewerId}
+          duration={Number(duration)} timezone={timezone} onPick={start => setScheduledStart(localDateTimeValue(start))}/>
         <label>Start time<Input type="datetime-local" required value={scheduledStart} onChange={event => setScheduledStart(event.target.value)}/></label>
         <label>Duration (minutes)<Input type="number" min="15" max="240" step="15" required value={duration} onChange={event => setDuration(event.target.value)}/></label>
         <label>Time zone<Input required value={timezone} maxLength={64} onChange={event => setTimezone(event.target.value)}/></label>
@@ -1089,6 +1058,7 @@ export function FollowUpsPage({ session }: Props) {
   return <section>
     <PageTitle title="Follow-up queue" description="Persistent, case-scoped reminders for review, interviews, feedback, and approved communication."
       actions={<Badge variant="outline">{tasks.data.total} tasks</Badge>}/>
+    <AwaitingReplies session={session}/>
     {recruiter && <section className="surface workspace-section">
       <div className="panel-heading"><div><h2>Create a follow-up</h2><p>Tasks are reminders only. Completing one does not send a message or approve an action.</p></div><ListTodo size={22}/></div>
       <form className="schedule-form" onSubmit={event => { event.preventDefault(); create.mutate() }}>

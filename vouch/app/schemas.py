@@ -29,6 +29,18 @@ class Decision(Strict):
     payload_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
+class MessageStatus(Strict):
+    status: Literal["new", "handled"]
+
+
+class ReplyDraft(Strict):
+    timezone: str = Field(default="UTC", min_length=1, max_length=64)
+
+
+class HrQuestion(Strict):
+    question: str = Field(min_length=3, max_length=500)
+
+
 class Login(Strict):
     email: str = Field(max_length=200)
     password: str = Field(max_length=200)

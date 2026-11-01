@@ -74,7 +74,9 @@ def draft_text(kind: str, pseudonym: str, case_title: str, start: str, minutes: 
             f"Regards,\nThe recruitment team")
 
 
-def create_proposal(user: dict, case_id: str, body) -> dict:
+def create_proposal(user: dict, case_id: str, body, composed: dict | None = None) -> dict:
+    """composed (server-side only, never from a request body): a reply drafted by replies.py, as
+    {"subject", "body", "in_reply_to"}. It becomes kind "reply" and follows the same approval path."""
     case = require_case_write(user, case_id, roles=("recruiter",))
     start = _valid_start(body.start) if body.kind == "interview_invite" else None
     pid = db.new_id("PROP")
@@ -95,15 +97,21 @@ def create_proposal(user: dict, case_id: str, body) -> dict:
         row = conn.execute("SELECT email FROM contact_confirmations WHERE candidate_id=?", (cand["id"],)).fetchone()
         if not row:   # D11: the CV address is only a suggestion; a recruiter must confirm it first
             raise conflict("RECIPIENT_NOT_CONFIRMED", "Confirm this candidate's email address before proposing an action.")
-        subject, text = draft_text(body.kind, cand["pseudonym"], case["title"], start, body.duration_minutes)
-        payload = {"case_id": case_id, "candidate_id": cand["id"], "kind": body.kind,
+        kind = body.kind
+        if composed is None:
+            subject, text = draft_text(body.kind, cand["pseudonym"], case["title"], start, body.duration_minutes)
+        else:
+            kind, subject, text = "reply", composed["subject"], composed["body"]
+        payload = {"case_id": case_id, "candidate_id": cand["id"], "kind": kind,
                    "recipient": row["email"], "start": start,
                    "duration_minutes": body.duration_minutes, "subject": subject, "body": text}
+        if composed is not None:
+            payload["in_reply_to"] = composed["in_reply_to"]
         _validate_payload(payload)
         h = payload_hash(payload)
         conn.execute("INSERT INTO proposals VALUES (?,?,?,?,?,?,?,?,?,?)",
-                     (pid, case_id, cand["id"], body.kind, canonical(payload), h, user["id"], "PENDING_APPROVAL", ts, ts))
-        ledger.append(conn, user["id"], "PROPOSAL_CREATED", case_id, pid, {"payload_sha256": h, "kind": body.kind})
+                     (pid, case_id, cand["id"], kind, canonical(payload), h, user["id"], "PENDING_APPROVAL", ts, ts))
+        ledger.append(conn, user["id"], "PROPOSAL_CREATED", case_id, pid, {"payload_sha256": h, "kind": kind})
     return get_proposal(user, pid)
 
 

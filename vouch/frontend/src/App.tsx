@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { ArrowRight, BriefcaseBusiness, CalendarDays, Check, ChevronRight, CircleCheck, Clock3, FileCheck2, Fingerprint, LayoutDashboard, ListTodo, LogOut, Mail, Moon, RefreshCw, Search, Settings, ShieldCheck, ShieldX, Sun, Users, X, Menu, AlertTriangle, Link2, Send, Presentation } from 'lucide-react'
+import { ArrowRight, BriefcaseBusiness, CalendarDays, Check, ChevronRight, CircleCheck, Clock3, FileCheck2, Fingerprint, LayoutDashboard, ListTodo, LogOut, Mail, Moon, RefreshCw, Search, Settings, ShieldCheck, BookOpen, ShieldX, Sun, Users, X, Menu, AlertTriangle, Link2, Send, Presentation } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Toaster } from '@/components/ui/sonner'
 import { api, ApiError, readSession, roleName, humanize, timeLabel, type Session, type User, type Meta, type Overview, type Attention } from '@/lib/api'
-import { AdminPage, ApprovalsPage, AssurancePage, CandidatesPage, CaseWorkspace, CasesPage, FollowUpsPage, InboxPage, InterviewsPage, LedgerPage } from '@/pages/WorkspacePages'
+import { AdminPage, ApprovalsPage, AssurancePage, CandidatesPage, CaseWorkspace, CasesPage, FollowUpsPage, InterviewsPage, LedgerPage } from '@/pages/WorkspacePages'
+import { HrAssistantPage, InboxPage } from '@/pages/Assistants'
 
 const NAV = [
   {label:'Overview', icon:LayoutDashboard, path:'/', section:'Workspace'},
@@ -18,6 +19,7 @@ const NAV = [
   {label:'AI Inbox',icon:Mail,path:'/inbox',section:'Workspace'},
   {label:'Interviews',icon:CalendarDays,path:'/interviews',section:'Workspace'},
   {label:'Follow-ups',icon:ListTodo,path:'/follow-ups',section:'Workspace'},
+  {label:'HR Assistant',icon:BookOpen,path:'/hr-assistant',section:'Workspace'},
   {label:'Approvals',icon:FileCheck2,path:'/approvals',section:'Governance'},
   {label:'Audit Ledger',icon:Link2,path:'/ledger',section:'Governance'},
   {label:'Security & Assurance',icon:ShieldCheck,path:'/assurance',section:'Governance'},
@@ -188,6 +190,7 @@ export default function App() {
           <Route path="/approvals" element={<ApprovalsPage {...appProps}/>}/>
           <Route path="/interviews" element={<InterviewsPage {...appProps}/>}/>
           <Route path="/follow-ups" element={<FollowUpsPage {...appProps}/>}/>
+          <Route path="/hr-assistant" element={<HrAssistantPage {...appProps}/>}/>
           <Route path="/ledger" element={<LedgerPage {...appProps}/>}/>
           <Route path="/assurance" element={<AssurancePage {...appProps}/>}/>
           <Route path="/admin" element={<AdminPage {...appProps}/>}/>

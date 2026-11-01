@@ -45,3 +45,15 @@ Red run for all of them: `evidence/red_run_review_findings.txt` (23 failed, 2 pa
 | P1 PII filter `2019-2023` | Already fixed on main | — | `test_core.py` | — | — |
 | P1 stub results | Reports, dashboard and README say `stub` | — | — | — | no real-model run yet |
 | P1 `--seed` wipes / logs out | By design (`--yes` required); README now says start without `--seed`, set `VOUCH_JWT_SECRET` to keep sessions | — | — | — | — |
+
+## HR assistants F1–F5 (2026-11-01), branch `feature/hr-assistants`
+Red run: `evidence/red_run_assistants.txt` covers F4 and F3 (written before the code). F1/F2/F5 tests were written together with the code, not red first; the drill rows below are the proof that each of their protections is tested.
+
+| Feature | Claim | Tests | Drill | Residual |
+|---|---|---|---|---|
+| F4 free slots | Suggested slots are in the future, on weekdays, inside working hours, never across lunch and never overlapping the interviewer's interviews/meetings or the candidate's interviews; a suggested slot can be booked | 12 | 1 row red | candidate's own availability outside Vouch is unknown |
+| F3 replies waiting | Latest sent message per candidate is listed until a reply is recorded (manually or by an inbound message from the confirmed address); follow-up = approval-bound draft + task, idempotent, refused after a reply | 8 | 1 row red | no real mailbox |
+| F1 inbox | Hidden HTML, instruction text, phishing language, look-alike senders, disguised/short/IP links, attachments and Reply-To mismatch are flagged; quoted chains, zero-width and bidi characters removed; ledger holds no text or address; links never fetched | 16 | 1 row red | rules, not a model; synthetic corpus only |
+| F2 replies | Draft = facts only (role, next interview, free slots), no candidate text or links, neutral on sensitive topics, refused for flagged/unconfirmed senders, grounding check on every number/date/address/link, kind `reply` through approval | 7 | 2 rows red | fixed wording |
+| F5 HR Q&A | Answer = quoted handbook section with its name; tuning set 18/18, held-out 15/16 (1 wrong), out-of-scope 6/6 refused, personal questions refused; ledger keeps only a hash | 30 | 1 row red | small synthetic question sets |
+| UI | Headless-browser walk-through: inbox (digest, reply draft, phishing flags, .eml upload), follow-ups (overdue + draft), interviews (suggested slot booked), HR assistant (answer, abstain, French), approvals (reply + follow-up visible), light/dark, 390 px width without horizontal scroll | — | — | one CSP console message when the Schedule dialog opens; it also happens on `main` (existing dialog component) |

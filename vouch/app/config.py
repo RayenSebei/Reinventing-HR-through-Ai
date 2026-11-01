@@ -66,6 +66,22 @@ REVIEW_TOP_N = _int("VOUCH_REVIEW_TOP_N", 3)
 # Delivery retries (RB-07): attempts per outbox row, counting the first one.
 MAX_DELIVERY_ATTEMPTS = _int("VOUCH_MAX_DELIVERY_ATTEMPTS", 5)
 
+# HR assistants (additive features). off = the routes answer 404 FEATURE_OFF; on = enabled.
+# "shadow" is not offered: these features only read data or create drafts that still need a human approval.
+FEATURES = ("slots", "reply_tracking", "inbox", "replies", "hr_qa")
+
+
+def feature_mode(name: str, env=None) -> str:
+    env = os.environ if env is None else env
+    value = env.get(f"FEAT_{name.upper()}_MODE", "on").strip().lower()
+    return value if value in ("off", "on") else "invalid"
+
+
+REPLY_WAIT_DAYS = _int("VOUCH_REPLY_WAIT_DAYS", 3)
+WORK_START_HOUR = _int("VOUCH_WORK_START_HOUR", 9)
+WORK_END_HOUR = _int("VOUCH_WORK_END_HOUR", 17)
+MAX_EML_BYTES = _int("VOUCH_MAX_EML_BYTES", 256 * 1024)
+
 # Upload limits.
 MAX_UPLOAD_BYTES = int(os.environ.get("VOUCH_MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 MAX_PAGES = int(os.environ.get("VOUCH_MAX_PAGES", "10"))
@@ -121,7 +137,9 @@ def validate(env) -> list[str]:
     if model == "openai" and not (env.get("VOUCH_OPENAI_API_KEY") and env.get("VOUCH_OPENAI_MODEL")):
         problems.append("VOUCH_MODEL=openai needs VOUCH_OPENAI_API_KEY and VOUCH_OPENAI_MODEL.")
     for name, lo in (("VOUCH_REVIEW_TOP_N", 1), ("VOUCH_MAX_DELIVERY_ATTEMPTS", 1), ("VOUCH_APPROVAL_MINUTES", 1),
-                     ("VOUCH_TOKEN_MINUTES", 1), ("VOUCH_MAX_UPLOAD_BYTES", 1), ("VOUCH_MAX_PAGES", 1)):
+                     ("VOUCH_TOKEN_MINUTES", 1), ("VOUCH_MAX_UPLOAD_BYTES", 1), ("VOUCH_MAX_PAGES", 1),
+                     ("VOUCH_REPLY_WAIT_DAYS", 1), ("VOUCH_MAX_EML_BYTES", 1024), ("VOUCH_WORK_START_HOUR", 0),
+                     ("VOUCH_WORK_END_HOUR", 1)):
         raw = env.get(name)
         if raw is None:
             continue
@@ -131,4 +149,10 @@ def validate(env) -> list[str]:
             ok = False
         if not ok:
             problems.append(f"{name} must be a whole number >= {lo}.")
+    for name in FEATURES:
+        if feature_mode(name, env) == "invalid":
+            problems.append(f"FEAT_{name.upper()}_MODE must be off or on.")
+    start, end = env.get("VOUCH_WORK_START_HOUR", "9"), env.get("VOUCH_WORK_END_HOUR", "17")
+    if start.isdigit() and end.isdigit() and not (0 <= int(start) < int(end) <= 24):
+        problems.append("VOUCH_WORK_START_HOUR must be before VOUCH_WORK_END_HOUR (0..24).")
     return problems

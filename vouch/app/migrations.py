@@ -57,6 +57,24 @@ BEGIN
   SELECT RAISE(ABORT, 'OUTBOX_PAYLOAD_IMMUTABLE');
 END;
 """),
+    (6, "HR assistants: inbound messages (F1/F2) and recorded replies (F3)", """
+CREATE TABLE IF NOT EXISTS inbound_messages (
+  id TEXT PRIMARY KEY, case_id TEXT REFERENCES cases(id), candidate_id TEXT REFERENCES candidates(id),
+  sender_email TEXT NOT NULL, sender_name TEXT NOT NULL DEFAULT '', subject TEXT NOT NULL,
+  safe_text TEXT NOT NULL, raw_sha256 TEXT NOT NULL UNIQUE, received_at TEXT NOT NULL,
+  category TEXT NOT NULL, urgency TEXT NOT NULL, summary TEXT NOT NULL,
+  findings_json TEXT NOT NULL DEFAULT '[]', links_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','handled')),
+  source TEXT NOT NULL CHECK (source IN ('demo','eml')), reply_proposal_id TEXT REFERENCES proposals(id),
+  created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS inbound_case_received ON inbound_messages(case_id, received_at);
+CREATE TABLE IF NOT EXISTS outbox_replies (
+  outbox_id TEXT PRIMARY KEY REFERENCES outbox(id), replied_at TEXT NOT NULL,
+  recorded_by TEXT NOT NULL REFERENCES users(id), source TEXT NOT NULL CHECK (source IN ('manual','inbox')),
+  message_id TEXT REFERENCES inbound_messages(id)
+);
+"""),
 ]
 
 LATEST = MIGRATIONS[-1][0]
