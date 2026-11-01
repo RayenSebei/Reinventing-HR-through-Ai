@@ -16,7 +16,7 @@ Every green claim below is reproduced by `python -m tools.verify --all` (latest 
 | RB-14 / WA-02 | Unsafe settings refuse to start; no known password without `VOUCH_DEMO_MODE=1`; secrets never printed | red run: `config.validate` missing | 13 tests | — | — |
 | DL-06 | Planted keys are found in tree and history; this repo is clean | — (tool is new) | 4 tests; `secret scan: 0 finding(s)` | — | history here was shallow; CI uses full history |
 | HI-07 | Random sequences of real API actions never break I1, I2, I4, I5, I6, I9 | the fuzzer catches the removed recipient re-check with a replayable seed (drill) | `test_invariants.py` | see below | other invariants need later phases |
-| TQ-03 | Each listed protection, when removed, turns its tests red | — | `evidence/drill_run.txt` | **9/9 red** | — |
+| TQ-03 | Each listed protection, when removed, turns its tests red | — | `python -m tools.drill` | **15/15 red** | — |
 | UI | Legacy UI completes login → upload → shortlist → recipient prompt → propose → approve → send | — | headless Chromium run, 0 console errors | — | not yet a committed Playwright test (Phase 8) |
 
 ## Fuzzer runs
@@ -28,3 +28,20 @@ Every green claim below is reproduced by `python -m tools.verify --all` (latest 
 | **10,000** (Gate 2 target) | 80,000 | 2,224 | 1,259 | **0** | 16 min 21 s (`evidence/fuzz_10000.txt`) |
 
 Labels: all results here use the `stub` model (SENTINEL) or `lexicon` (Vouch tests). No real-model result is claimed.
+
+## External review findings (2026-11-01), branch `fix/review-findings`
+Red run for all of them: `evidence/red_run_review_findings.txt` (23 failed, 2 passed before the fixes). Tests: `vouch/tests/test_review_findings.py`, `interview-chat/tests/test_secret_key.py`.
+
+| Finding | Claim now | Red run | Green run | Drill | Residual |
+|---|---|---|---|---|---|
+| P0 approval not tied to viewed content | Approve needs `payload_sha256` of what the manager saw; re-checked inside the transaction | approve without hash → 200 | 4 tests | 2 rows red | — |
+| P0 interview-chat placeholder key | `change-me`, other placeholders or < 32 chars stop the app; `.env.example` ships an empty key (random per start) | no check | 9 tests | — (other app) | — |
+| P0 criteria edit → 500 | Already fixed on main: `CRITERIA_LOCKED` 409 | — | `test_dashboard.py` | — | re-scoring after a change needs a new case |
+| P0 newline / Bcc in recipient or subject | Recipient: one clean confirmed address (D11). Subject: no C0/C1 control or U+2028/2029, ≤ 200 chars | `\u2028`, NEL, VT, TAB, NUL accepted | 6 cases | 1 row red | — |
+| P1 oversized PDF page | Preview checks pdfium's own page size and pixel budget; analysis also checks pdfium's size | 14400 pt page rendered (~1.4 GB RGB) | 2 tests | 1 row red | — |
+| P1 lockout of any account | Failures count per (account, client address) plus 30 per client for spraying | manager locked from every machine | 2 tests | 1 row red | behind a proxy all clients share one address |
+| P1 non-manager raw text via extraction | Every role except recruiter gets PII-redacted text (auditor and admin were raw) | auditor/admin saw the e-mail | 3 cases | 1 row red | — |
+| P1 negated mentions | English and French negations ("not familiar with", "haven't used", "aucune expérience", "jamais utilisé"…) are never evidence | 9 phrases counted | 10 tests | — | whole line skipped (conservative) |
+| P1 PII filter `2019-2023` | Already fixed on main | — | `test_core.py` | — | — |
+| P1 stub results | Reports, dashboard and README say `stub` | — | — | — | no real-model run yet |
+| P1 `--seed` wipes / logs out | By design (`--yes` required); README now says start without `--seed`, set `VOUCH_JWT_SECRET` to keep sessions | — | — | — | — |
