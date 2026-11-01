@@ -5,6 +5,7 @@ All API routes live under /api. Errors are JSON: {"error": {"code", "message"}}.
 from __future__ import annotations
 
 import json
+import os
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -18,7 +19,7 @@ from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import cases, config, dashboard, db, gateway, ledger, schemas, testmode
+from . import cases, config, contacts, dashboard, db, delivery, gateway, ledger, migrations, reviews, schemas, testmode
 from .errors import ApiError, invalid, not_found
 from .security import check_password, current_user, issue_token, require_role
 
@@ -108,11 +109,33 @@ async def users(request: Request):
 @api("GET", "/meta")
 async def meta(request: Request):
     return ok({"model_mode": config.MODEL_MODE, "test_mode": config.TEST_MODE,
-               "n8n_delivery": bool(config.N8N_WEBHOOK_URL), "approval_minutes": config.APPROVAL_MINUTES,
+               "n8n_delivery": bool(config.N8N_WEBHOOK_URL), "outbound_mode": config.OUTBOUND_MODE, "approval_minutes": config.APPROVAL_MINUTES,
                "data_handling": {
                    "retention_days": config.RETENTION_DAYS,
                    "statement": "Original CVs stay on the Vouch server. Only visible, personal-data-removed text is sent "
                                 "to an AI model. The Trust Ledger stores IDs and hashes, never CV text or contact details."}})
+
+
+# --- health (RB-09 / RB-06) --------------------------------------------------
+@api("GET", "/healthz")
+async def healthz(request: Request):
+    return ok({"ok": True})
+
+
+@api("GET", "/readyz")
+async def readyz(request: Request):
+    """Startup self-check: schema version, SQLite integrity, ledger chain, writable data dirs.
+    Returns booleans and counts only, no data."""
+    conn = db.connect()
+    with db._lock:
+        integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        version = migrations.current(conn)
+    led = ledger.verify()
+    writable = all(os.access(d, os.W_OK) for d in (config.DATA_DIR, config.ORIGINALS_DIR))
+    body = {"ok": integrity == "ok" and led["ok"] and writable and version == migrations.LATEST,
+            "schema_version": version, "integrity": integrity, "ledger_ok": led["ok"], "writable": writable,
+            "outbound_mode": config.OUTBOUND_MODE}
+    return ok(body, 200 if body["ok"] else 503)
 
 
 # --- cases ------------------------------------------------------------------
@@ -201,7 +224,23 @@ async def get_candidate(request: Request):
 async def get_dossier(request: Request):
     u = current_user(request)
     no_query(request)
-    return ok(cases.dossier(u, request.path_params["cand_id"]))
+    out = cases.dossier(u, request.path_params["cand_id"])
+    reviews.record(u, request.path_params["cand_id"])     # HI-03: only this route counts as opening it
+    return ok(out)
+
+
+@api("GET", "/candidates/{cand_id}/contact")
+async def get_contact(request: Request):
+    u = current_user(request)
+    no_query(request)
+    return ok(contacts.get_contact(u, request.path_params["cand_id"]))
+
+
+@api("POST", "/candidates/{cand_id}/contact/confirm")
+async def confirm_contact(request: Request):
+    u = current_user(request)
+    body = await body_as(request, schemas.ContactConfirm)
+    return ok(contacts.confirm(u, request.path_params["cand_id"], body.email))
 
 
 @api("POST", "/candidates/{cand_id}/dossier")
@@ -295,6 +334,13 @@ async def execute(request: Request):
     u = current_user(request)
     await body_as(request, schemas.Empty)     # the gateway never accepts a payload from the client
     return ok(gateway.execute(u, request.path_params["pid"]))
+
+
+@api("POST", "/outbox/{oid}/retry")
+async def retry_delivery(request: Request):
+    u = current_user(request)
+    await body_as(request, schemas.Empty)     # a retry re-sends the stored approved payload, nothing else
+    return ok(delivery.retry(u, request.path_params["oid"]))
 
 
 @api("GET", "/cases/{case_id}/outbox")

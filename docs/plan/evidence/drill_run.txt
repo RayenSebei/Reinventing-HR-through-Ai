@@ -1,0 +1,12 @@
+protection removed                               | tests went red? | last line
+recipient confirmation at create (D11)           | YES             | 1 failed in 0.64s
+recipient re-check at execute (I5)               | YES             | 1 failed in 0.67s
+single-address recipient validation (OB-03)      | YES             | 1 failed in 0.64s
+server-side review gate (HI-03)                  | YES             | 1 failed in 0.64s
+outbox database trigger (HL-01 backstop)         | YES             | 1 failed in 0.76s
+kill switch 'disabled' (HL-07)                   | YES             | 1 failed in 0.77s
+never re-send a delivered item (RB-07)           | YES             | 1 failed in 0.63s
+criteria-change archive + re-evaluation (RB-05)  | YES             | 1 failed in 0.83s
+n8n attribution switched off (HL-04)             | YES             | 1 failed in 0.05s
+
+9/9 removals turned their tests red.

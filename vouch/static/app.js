@@ -296,7 +296,12 @@ async function renderActions() {
   const out = await api("GET", `/cases/${S.caseId}/outbox`);
   const ol = clear($("outList"));
   if (!out.length) ol.append(el("li", { class: "empty-state" }, el("strong", { text: "No invitations sent yet." }), el("p", { text: "Messages appear here after manager approval and a successful send." })));
-  for (const o of out) ol.append(el("li", {}, el("b", { text: o.payload.subject }), el("div", { class: "small muted", text: `to ${o.payload.recipient} · ${o.delivery_status} · ${o.created_at}` })));
+  for (const o of out) {
+    const retry = (o.delivery_status === "DELIVERY_FAILED" || o.delivery_status === "HELD_OUTBOUND_DISABLED") && S.case.can_edit
+      ? el("button", { type: "button", onclick: () => guard(async () => { const r = await api("POST", `/outbox/${o.id}/retry`, {}); banner("Retry: " + r.delivery_status + " (same approved content).", r.delivery_status === "DELIVERED" ? "ok" : "warn"); await renderActions(); }), text: "Retry sending" })
+      : null;
+    ol.append(el("li", {}, el("b", { text: o.payload.subject }), el("div", { class: "small muted", text: `to ${o.payload.recipient} · ${o.delivery_status} · ${o.created_at}` }), retry));
+  }
   $("sentCount").textContent = out.length;
 }
 
@@ -436,7 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const fd = new FormData(); fd.append("file", f); last = await api("POST", `/cases/${S.caseId}/candidates`, fd, true); completed++;
       }
       $("uploadStatus").textContent = `✓ ${completed} CV${completed === 1 ? "" : "s"} reviewed. Select a candidate to explore the evidence.`;
-      $("uploadForm").reset(); S.dossier = last; S.page = 1; S.viewed.add(last.candidate_id);
+      $("uploadForm").reset(); await openDossier(last.candidate_id);   // opening it through the API is what counts as a review
     } catch (error) {
       $("uploadStatus").textContent = `Upload stopped. ${completed} of ${files.length} CVs completed. ${error.message}`;
       throw error;
@@ -451,8 +456,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }));
 
   $("propForm").addEventListener("submit", (e) => { e.preventDefault(); guard(async () => {
-    const v = $("propStart").value; const kind = $("propKind").value;
-    await api("POST", `/cases/${S.caseId}/proposals`, { candidate_id: $("propCand").value, kind, start: kind === "interview_invite" && v ? v + ":00Z" : null });
+    const v = $("propStart").value; const kind = $("propKind").value; const cand = $("propCand").value;
+    const contact = await api("GET", `/candidates/${cand}/contact`);
+    if (!contact.confirmed_email) {
+      const typed = window.prompt("Confirm the email address for this candidate.\nIt was " + (contact.source === "cv_text" ? "read from the CV, which the candidate wrote" : "not found in the CV") + ". Check it before confirming:", contact.source === "cv_text" ? contact.suggested_email : "");
+      if (!typed) { banner("Nothing drafted: the email address was not confirmed.", "warn"); return; }
+      await api("POST", `/candidates/${cand}/contact/confirm`, { email: typed.trim() });
+    }
+    await api("POST", `/cases/${S.caseId}/proposals`, { candidate_id: cand, kind, start: kind === "interview_invite" && v ? v + ":00Z" : null });
     banner("Drafted. Nothing is sent until the hiring manager approves it.", "ok"); await renderActions();
   }); });
 

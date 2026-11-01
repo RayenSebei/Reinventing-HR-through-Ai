@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import config, db, documents, evidence, ledger, pii, ranking
+from . import config, db, documents, evidence, ledger, pii, ranking, reviews
 from .canonical import canonical, sha256_hex
 from .errors import conflict, invalid, not_found
 from .security import READ_ALL_ROLES, require_case_read, require_case_write, require_role
@@ -52,16 +52,48 @@ def get_case(user: dict, case_id: str) -> dict:
 
 
 def set_criteria(user: dict, case_id: str, body) -> dict:
+    """RB-05 (fixes G9): changing criteria after CVs were analysed used to fail on the foreign key
+    from evidence_items to criteria. Old evidence is now archived (kept), the evidence is
+    re-generated from the stored analysis against the new criteria, and any confirmed shortlist
+    is superseded because it was judged against the old criteria."""
     require_case_write(user, case_id)
+    old = {c["id"]: c["label"] for c in _criteria(case_id)}
     with db.tx() as conn:
+        ts = db.now()
+        for e in conn.execute("SELECT e.* FROM evidence_items e JOIN candidates c ON c.id=e.candidate_id WHERE c.case_id=?",
+                              (case_id,)).fetchall():
+            conn.execute("INSERT INTO evidence_archive VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                         (db.new_id("EVA"), e["candidate_id"], e["criterion_id"], old.get(e["criterion_id"], ""),
+                          e["status"], e["quote"], e["page"], e["source"], e["note"], ts, user["id"]))
+        conn.execute("DELETE FROM evidence_items WHERE candidate_id IN (SELECT id FROM candidates WHERE case_id=?)", (case_id,))
+        superseded = conn.execute("UPDATE rankings SET status='SUPERSEDED' WHERE case_id=? AND status IN ('DRAFT','CONFIRMED')",
+                                  (case_id,)).rowcount
         conn.execute("DELETE FROM criteria WHERE case_id=?", (case_id,))
         for i, c in enumerate(body.criteria):
             conn.execute("INSERT INTO criteria VALUES (?,?,?,?,?,?,?)",
                          (db.new_id("CRIT"), case_id, c.label, c.kind, c.weight, canonical(c.aliases), i))
         conn.execute("UPDATE cases SET criteria_confirmed_by=NULL, criteria_confirmed_at=NULL WHERE id=?", (case_id,))
         ledger.append(conn, user["id"], "CRITERIA_SET", case_id, case_id,
-                      {"criteria": [{"label": c.label, "kind": c.kind, "weight": c.weight} for c in body.criteria]})
+                      {"criteria": [{"label": c.label, "kind": c.kind, "weight": c.weight} for c in body.criteria],
+                       "rankings_superseded": superseded})
+    _reevaluate_case(user, case_id)
     return get_case(user, case_id)
+
+
+def _reevaluate_case(user: dict, case_id: str) -> None:
+    """Rebuild evidence for every analysed CV of the case against the current criteria."""
+    crit = _criteria(case_id)
+    for doc in db.q("SELECT * FROM documents WHERE case_id=?", (case_id,)):
+        analysis = db.loads(doc["analysis_json"])
+        if not analysis or "pages" not in analysis:
+            continue
+        items, extra = evidence.build(crit, analysis, documents.find_findings(analysis), doc["sha256"])
+        with db.tx() as conn:
+            _store_evidence(conn, doc["candidate_id"], items)
+            conn.execute("DELETE FROM findings WHERE document_id=? AND type IN ('UNSUPPORTED_CLAIM','MODEL_FALLBACK')", (doc["id"],))
+            _store_findings(conn, doc["id"], extra)
+            ledger.append(conn, "system", "EVIDENCE_GENERATED", case_id, doc["candidate_id"],
+                          {"statuses": sorted(e["status"] for e in items), "reason": "criteria_changed"})
 
 
 def confirm_criteria(user: dict, case_id: str) -> dict:
@@ -248,6 +280,7 @@ def confirm_ranking(user: dict, case_id: str, version: int) -> dict:
         raise not_found("Ranking")
     if r["status"] != "DRAFT":
         raise conflict("NOT_A_DRAFT", "Only a draft ranking can be confirmed.")
+    reviews.enforce(user, db.loads(r["payload_json"]))     # HI-03: server-side review gate
     with db.tx() as conn:
         conn.execute("UPDATE rankings SET status='SUPERSEDED' WHERE case_id=? AND status='CONFIRMED'", (case_id,))
         conn.execute("UPDATE rankings SET status='CONFIRMED', confirmed_by=?, confirmed_at=? WHERE id=?", (user["id"], db.now(), r["id"]))

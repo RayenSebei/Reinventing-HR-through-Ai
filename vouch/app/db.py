@@ -107,7 +107,10 @@ def connect() -> sqlite3.Connection:
         _conn.row_factory = sqlite3.Row
         _conn.execute("PRAGMA journal_mode=WAL")
         _conn.execute("PRAGMA foreign_keys=ON")
+        _conn.execute("PRAGMA busy_timeout=5000")   # RB-03: wait for a lock instead of failing at once
         _conn.executescript(SCHEMA)
+        from . import migrations
+        migrations.apply(_conn)
     return _conn
 
 
@@ -139,7 +142,8 @@ def wipe() -> None:
     """Delete everything (test mode / demo reset)."""
     conn = connect()
     with _lock:
-        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+                                                "AND name <> 'schema_migrations'")]
         conn.execute("PRAGMA foreign_keys=OFF")
         for t in tables:
             conn.execute(f"DELETE FROM {t}")

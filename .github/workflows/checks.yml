@@ -7,6 +7,8 @@ jobs:
       OPENBLAS_NUM_THREADS: 1
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # full history for the secret scan
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -15,8 +17,16 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: vouch/frontend/package-lock.json
-      - run: pip install -r vouch/requirements.txt
+      - run: pip install -r vouch/requirements.txt -r interview-chat/requirements.txt
       - run: npm ci --ignore-scripts && npm run typecheck && npm run lint && npm run build
         working-directory: vouch/frontend
-      - run: python -m pytest -q
-        working-directory: vouch
+      # Every suite (TQ-04): Vouch tests incl. HITL, n8n lint and the invariant fuzzer;
+      # interview-chat tests; the 24 SENTINEL attack scenarios; the protection-removal drill.
+      - run: python -m tools.verify --all
+      - name: Secret scan (tree and history)
+        run: python -m tools.secret_scan --history
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-report
+          path: reports/

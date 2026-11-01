@@ -65,3 +65,8 @@ class ProposalEdit(Strict):
     subject: str | None = Field(default=None, max_length=200)
     body: str | None = Field(default=None, max_length=5000)
     duration_minutes: int | None = Field(default=None, ge=15, le=240)
+
+
+class ContactConfirm(Strict):
+    """HI-04/D11: the address a recruiter confirms for a candidate (validated in contacts.clean_address)."""
+    email: str = Field(max_length=254)

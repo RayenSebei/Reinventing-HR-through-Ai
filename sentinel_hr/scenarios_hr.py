@@ -83,10 +83,18 @@ class Ctx:
 
     def shortlist(self, case_id: str, who="R-ALPHA") -> dict:
         rk = self.ok(who, "POST", f"/cases/{case_id}/ranking")
+        for row in rk["rows"]:      # the human step the server now requires (HI-03 review gate)
+            self.ok(who, "GET", f"/candidates/{row['candidate_id']}/dossier")
         return self.ok(who, "POST", f"/cases/{case_id}/ranking/{rk['version']}/confirm")
+
+    def confirm_recipient(self, cand_id: str, who="R-ALPHA") -> dict:
+        """The human step the server now requires before any proposal (D11 recipient confirmation)."""
+        sug = self.ok(who, "GET", f"/candidates/{cand_id}/contact")["suggested_email"]
+        return self.ok(who, "POST", f"/candidates/{cand_id}/contact/confirm", json={"email": sug})
 
     def proposal(self, case_id: str, cand_id: str, start="2030-05-01T10:00:00Z") -> dict:
         self.shortlist(case_id)
+        self.confirm_recipient(cand_id)
         return self.ok("R-ALPHA", "POST", f"/cases/{case_id}/proposals", json={"candidate_id": cand_id, "start": start})
 
     def ledger(self, case_id: str) -> list[dict]:

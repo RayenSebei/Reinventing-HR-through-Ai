@@ -10,14 +10,10 @@
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 
-import requests
-
-from . import config, db, ledger
+from . import config, contacts, db, delivery, ledger
 from .canonical import canonical, payload_hash
 from .errors import ApiError, conflict, forbidden, invalid, not_found
 from .security import is_member, require_case_read, require_case_write
@@ -61,10 +57,13 @@ def create_proposal(user: dict, case_id: str, body) -> dict:
     confirmed = db.one("SELECT payload_json FROM rankings WHERE case_id=? AND status='CONFIRMED' ORDER BY version DESC LIMIT 1", (case_id,))
     if not confirmed or body.candidate_id not in {r["candidate_id"] for r in db.loads(confirmed["payload_json"])}:
         raise conflict("SHORTLIST_NOT_CONFIRMED", "Confirm the shortlist that includes this candidate first.")
+    recipient = contacts.confirmed_email(cand["id"])
+    if not recipient:
+        raise conflict("RECIPIENT_NOT_CONFIRMED", "Confirm this candidate's email address before proposing an action.")
     start = _valid_start(body.start)
     subject, text = draft_text(body.kind, cand["pseudonym"], case["title"], start, body.duration_minutes)
     payload = {"case_id": case_id, "candidate_id": cand["id"], "kind": body.kind,
-               "recipient": cand["contact_email"], "start": start if body.kind == "interview_invite" else None,
+               "recipient": recipient, "start": start if body.kind == "interview_invite" else None,
                "duration_minutes": body.duration_minutes, "subject": subject, "body": text}
     pid = db.new_id("PROP")
     h = payload_hash(payload)
@@ -116,6 +115,8 @@ def edit_proposal(user: dict, pid: str, body) -> dict:
     changes = body.model_dump(exclude_none=True)
     if "start" in changes:
         changes["start"] = _valid_start(changes["start"])
+    if "recipient" in changes:
+        changes["recipient"] = contacts.clean_address(changes["recipient"])
     payload.update(changes)
     if ("start" in changes or "duration_minutes" in changes) and "body" not in changes and payload["kind"] == "interview_invite":
         case = db.one("SELECT title FROM cases WHERE id=?", (p["case_id"],))
@@ -173,8 +174,16 @@ def execute(user: dict, pid: str) -> dict:
     if current_hash != a["payload_sha256"] or current_hash != p["payload_sha256"]:
         raise _deny(user, p, "APPROVAL_PAYLOAD_MISMATCH",
                     "The action changed after the manager approved it. The approval no longer matches.")
+    if db.loads(p["payload_json"]).get("recipient") != contacts.confirmed_email(p["candidate_id"]):
+        raise _deny(user, p, "RECIPIENT_NOT_CONFIRMED",
+                    "The recipient is not the address a recruiter confirmed for this candidate.")
     oid = db.new_id("OUT")
     with db.tx() as conn:
+        # Re-read inside the transaction so nothing can change between the checks and the write.
+        fresh = conn.execute("SELECT payload_json, payload_sha256 FROM proposals WHERE id=?", (pid,)).fetchone()
+        if fresh["payload_json"] != p["payload_json"] or fresh["payload_sha256"] != a["payload_sha256"]:
+            raise conflict("APPROVAL_PAYLOAD_MISMATCH",
+                           "The action changed after the manager approved it. The approval no longer matches.")
         cur = conn.execute("UPDATE approvals SET used_at=? WHERE id=? AND used_at IS NULL", (db.now(), a["id"]))
         if cur.rowcount != 1:   # someone else used it a moment ago
             raise conflict("APPROVAL_REPLAY", "This approval was already used. Each approval works once.")
@@ -188,19 +197,8 @@ def execute(user: dict, pid: str) -> dict:
 
 
 def _deliver(oid: str, payload_json: str, pid: str) -> None:
-    """Hand the approved action to n8n (optional). The sandbox outbox row is the record."""
-    if not config.N8N_WEBHOOK_URL:
-        db.q("UPDATE outbox SET delivery_status='SANDBOX_ONLY' WHERE id=?", (oid,))
-        return
-    sig = hmac.new(config.N8N_HMAC_SECRET.encode(), payload_json.encode("utf-8"), hashlib.sha256).hexdigest()
-    try:
-        r = requests.post(config.N8N_WEBHOOK_URL, json={"outbox_id": oid, "proposal_id": pid, "payload_json": payload_json},
-                          headers={"X-Vouch-Signature": sig}, timeout=10)
-        status, detail = ("DELIVERED", "") if r.ok else ("DELIVERY_FAILED", f"n8n answered {r.status_code}")
-    except requests.RequestException as e:
-        status, detail = "DELIVERY_FAILED", type(e).__name__
-    db.q("UPDATE outbox SET delivery_status=?, delivery_detail=? WHERE id=?", (status, detail, oid))
-    ledger.record("gateway", "DELIVERY_" + status, None, oid, {"detail": detail})
+    """Hand the approved action to delivery (kill switch, attempts, n8n). The outbox row is the record."""
+    delivery.deliver(oid, payload_json, pid)
 
 
 def outbox(user: dict, case_id: str) -> list[dict]:

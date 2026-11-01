@@ -11,10 +11,17 @@ You need **Python 3.11 or newer**.
 ```bash
 cd vouch
 pip install -r requirements.txt
-python -m app --seed            # creates 4 demo users + a demo job, then starts the server
+VOUCH_DEMO=1 python -m app --seed   # creates 4 demo users + a demo job, then starts the server
+                                   # (PowerShell: $env:VOUCH_DEMO="1"; python -m app --seed)
 ```
 
-Open **http://127.0.0.1:8000** and use the quick sign-in buttons. Every demo password is `demo1234`.
+Open **http://127.0.0.1:8000** and use the quick sign-in buttons. With `VOUCH_DEMO=1` every demo password is `demo1234`; without it, `--seed` prints a one-time random password, so no known password exists outside a demo.
+
+**Human steps the server enforces** (not just the screens):
+- Before confirming a shortlist, the recruiter opens the top 3 dossiers and every flagged one (`VOUCH_REVIEW_TOP_N`).
+- Before any message is drafted, a recruiter confirms the candidate's email address. The address read from the CV is only a suggestion, because the candidate wrote it.
+- Nothing leaves unless `VOUCH_OUTBOUND_MODE=live` (default `sink`: recorded in the demo outbox only; `disabled`: approved actions are held). See `.env.example`.
+- A failed delivery can be retried by a person; it re-sends the same approved content and is never sent twice once delivered.
 
 | Demo user | Role | What they can do |
 |---|---|---|
