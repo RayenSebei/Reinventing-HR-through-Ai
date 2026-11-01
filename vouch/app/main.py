@@ -21,8 +21,8 @@ from starlette.concurrency import run_in_threadpool
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import (agenda, cases, config, contacts, dashboard, db, delivery, gateway, ledger, migrations, policy, retention,
-               reviews, schemas, scheduling, testmode, workspace)
+from . import (agenda, cases, config, contacts, dashboard, db, delivery, features, gateway, hr_qa, inbox, ledger, migrations,
+               policy, replies, reply_tracking, retention, reviews, schemas, scheduling, slots, testmode, workspace)
 from .errors import ApiError, invalid, not_found
 from .security import check_password, current_user, hash_password, issue_token, require_role
 
@@ -164,7 +164,12 @@ def meta(request: Request):
                    "claim_extraction": True,
                    "fallback_to_word_list": True,
                    "chat_assistant": False,
-                   "inbox_summarization": False,
+                   "inbox_summarization": features.enabled("inbox"),
+                   "inbox_summary_method": "rules",
+                   "reply_drafts": features.enabled("replies"),
+                   "reply_tracking": features.enabled("reply_tracking"),
+                   "slot_suggestions": features.enabled("slots"),
+                   "employee_questions": features.enabled("hr_qa"),
                    "autonomous_actions": False,
                },
                "approval_minutes": current_policy["approval_ttl_minutes"],
@@ -295,6 +300,108 @@ def get_agenda(request: Request):
     if extra:
         raise invalid(f"Unknown query parameter(s): {', '.join(sorted(extra))}.")
     return ok(agenda.agenda(user, request.query_params.get("from"), request.query_params.get("to")))
+
+
+@api("GET", "/cases/{case_id}/slots")
+def suggest_slots(request: Request):
+    features.require("slots")
+    u = current_user(request)
+    no_duplicate_query_keys(request)
+    return ok(slots.suggest(u, request.path_params["case_id"], dict(request.query_params)))
+
+
+@api("GET", "/follow-ups/awaiting-reply")
+def awaiting_reply(request: Request):
+    features.require("reply_tracking")
+    u = current_user(request)
+    no_duplicate_query_keys(request)
+    return ok(reply_tracking.awaiting(u, reply_tracking.check_query(request.query_params)))
+
+
+@api("POST", "/outbox/{oid}/replied")
+async def outbox_replied(request: Request):
+    features.require("reply_tracking")
+    u = await auth_user(request)
+    await body_as(request, schemas.Empty)
+    return ok(await run_in_threadpool(reply_tracking.record_reply, u, request.path_params["oid"]))
+
+
+@api("POST", "/outbox/{oid}/follow-up")
+async def outbox_follow_up(request: Request):
+    features.require("reply_tracking")
+    u = await auth_user(request)
+    await body_as(request, schemas.Empty)
+    proposal, created = await run_in_threadpool(reply_tracking.draft_follow_up, u, request.path_params["oid"])
+    return ok({"proposal": proposal, "created": created}, 201 if created else 200)
+
+
+@api("GET", "/inbox")
+def inbox_digest(request: Request):
+    features.require("inbox")
+    u = current_user(request)
+    no_duplicate_query_keys(request)
+    return ok(inbox.digest(u, request.query_params))
+
+
+@api("POST", "/inbox/messages")
+async def inbox_upload(request: Request):
+    features.require("inbox")
+    u = await auth_user(request)
+    if u["role"] not in ("recruiter", "hr_admin"):
+        raise ApiError(403, "FORBIDDEN_ROLE", "Only recruiters and HR admins can add messages to the inbox.")
+    if not request.headers.get("content-type", "").startswith("multipart/form-data"):
+        raise invalid("Upload the email as multipart/form-data with a 'file' field (.eml).")
+    form = await request.form(max_files=1, max_fields=2)
+    extra = set(form.keys()) - {"file"}
+    if extra:
+        raise invalid(f"Unknown form field(s): {', '.join(sorted(extra))}.")
+    f = form.get("file")
+    if f is None or isinstance(f, str):
+        raise invalid("Add one .eml file in the 'file' field.")
+    data = await f.read(config.MAX_EML_BYTES + 1)
+    return ok(await run_in_threadpool(inbox.ingest_eml, u, data), 201)
+
+
+@api("GET", "/inbox/messages/{mid}")
+def inbox_message(request: Request):
+    features.require("inbox")
+    u = current_user(request)
+    no_query(request)
+    return ok(inbox.get(u, request.path_params["mid"]))
+
+
+@api("POST", "/inbox/messages/{mid}/status")
+async def inbox_status(request: Request):
+    features.require("inbox")
+    u = await auth_user(request)
+    body = await body_as(request, schemas.MessageStatus)
+    return ok(await run_in_threadpool(inbox.set_status, u, request.path_params["mid"], body.status))
+
+
+@api("POST", "/inbox/messages/{mid}/reply")
+async def inbox_reply(request: Request):
+    features.require("inbox")
+    features.require("replies")
+    u = await auth_user(request)
+    body = await body_as(request, schemas.ReplyDraft)
+    proposal, created = await run_in_threadpool(replies.draft, u, request.path_params["mid"], body.timezone)
+    return ok({"proposal": proposal, "created": created}, 201 if created else 200)
+
+
+@api("POST", "/hr/ask")
+async def hr_ask(request: Request):
+    features.require("hr_qa")
+    u = await auth_user(request)
+    body = await body_as(request, schemas.HrQuestion)
+    return ok(await run_in_threadpool(hr_qa.ask, u, body.question))
+
+
+@api("GET", "/hr/handbook")
+def hr_handbook(request: Request):
+    features.require("hr_qa")
+    current_user(request)
+    no_query(request)
+    return ok({"company": "Northwind Demo Ltd (fictional)", "documents": hr_qa.sections()})
 
 
 @api("POST", "/meetings")
