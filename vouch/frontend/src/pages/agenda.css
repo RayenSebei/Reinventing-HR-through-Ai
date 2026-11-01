@@ -1,6 +1,7 @@
 /* Agenda (Google-Calendar-style). Colours: one per interview format + meetings; work in light and dark. */
-.agenda{--fmt-ai:#7c3aed;--fmt-rec:#2563eb;--fmt-senior:#c2410c;--meet:#0f766e;--busy:#6b7280;padding:0;overflow:hidden;margin-top:18px}
-:root[data-theme=dark] .agenda{--fmt-ai:#a78bfa;--fmt-rec:#60a5fa;--fmt-senior:#fb923c;--meet:#2dd4bf;--busy:#9a9ca6}
+:root{--fmt-ai:#7c3aed;--fmt-rec:#2563eb;--fmt-senior:#c2410c;--meet:#0f766e;--busy:#6b7280}
+:root[data-theme=dark]{--fmt-ai:#a78bfa;--fmt-rec:#60a5fa;--fmt-senior:#fb923c;--meet:#2dd4bf;--busy:#9a9ca6}
+.agenda{padding:0;overflow:hidden;margin-top:18px}
 .agenda-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
 .agenda-nav,.agenda-controls{display:flex;align-items:center;gap:6px}
 .agenda-title{font-size:18px;font-weight:600;margin-left:8px;letter-spacing:-.01em}

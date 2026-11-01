@@ -72,7 +72,7 @@ def seed_demo() -> str:
     cases.shortlist(recruiter, "CASE-DEMO", ranking["version"],
                     schemas.ShortlistSet(candidate_ids=selected))
 
-    start = db.utcnow().replace(microsecond=0)
+    start = db.utcnow().replace(minute=0, second=0, microsecond=0)   # whole hours read better on the agenda
     first_interview = scheduling.create_interview(recruiter, schemas.InterviewCreate(
         case_id="CASE-DEMO", candidate_id=selected[0], interviewer_id="U-MGR",
         interview_type="technical", scheduled_start=(start + timedelta(days=2, hours=10)).isoformat().replace("+00:00", "Z"),

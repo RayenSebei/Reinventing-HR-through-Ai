@@ -264,8 +264,8 @@ function EventBlock({ event, onPick, style }: { event: AgendaEvent; onPick: (e: 
       {eventLabel(event)}
     </span>
     <span className="ev-time">{time}</span>
-    {event.kind === 'interview' && event.duration_minutes >= 45 && <span className="ev-sub">{FORMAT_TEXT[formatOf(event)].short}{event.format.decided ? '' : ' · suggested'}</span>}
-    {event.kind === 'meeting' && event.private && event.duration_minutes >= 45 && <span className="ev-sub" dir="auto">{event.attendee_names.join(', ')}</span>}
+    {event.kind === 'interview' && event.duration_minutes >= 60 && <span className="ev-sub">{FORMAT_TEXT[formatOf(event)].short}{event.format.decided ? '' : ' · suggested'}</span>}
+    {event.kind === 'meeting' && event.private && event.duration_minutes >= 60 && <span className="ev-sub" dir="auto">{event.attendee_names.join(', ')}</span>}
   </button>
 }
 
