@@ -73,6 +73,11 @@ def _assert_no_overlap(conn, candidate_id: str, interviewer_id: str, start: str,
             else:
                 message = "This interviewer already has an overlapping interview."
             raise conflict("INTERVIEW_CONFLICT", message, interview_id=row["id"])
+    # Internal meetings block the interviewer's time too (agenda.py).
+    from .agenda import overlapping_meeting
+    meeting = overlapping_meeting(conn, [interviewer_id], start, duration_minutes)
+    if meeting:
+        raise conflict("INTERVIEW_CONFLICT", "This interviewer has a meeting at that time.", meeting_id=meeting["id"])
 
 
 def create_interview(user: dict, body) -> dict:

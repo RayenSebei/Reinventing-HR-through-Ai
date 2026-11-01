@@ -219,3 +219,55 @@ class PolicyUpdate(Strict):
         if value is None:
             raise ValueError("policy fields cannot be null")
         return value
+
+
+# --- agenda: internal meetings and interview format -------------------------------
+class MeetingCreate(Strict):
+    title: str = Field(min_length=1, max_length=200)
+    start: str = Field(min_length=10, max_length=40)
+    duration_minutes: int = Field(ge=15, le=480)
+    timezone: str = Field(min_length=1, max_length=64)
+    location: str = Field(default="", max_length=300)
+    description: str = Field(default="", max_length=4000)
+    attendee_ids: list[str] = Field(default_factory=list, max_length=30)
+
+    @field_validator("start")
+    @classmethod
+    def valid_start(cls, value):
+        return _aware_datetime(value)
+
+    @field_validator("timezone")
+    @classmethod
+    def valid_timezone(cls, value):
+        return _timezone(value)
+
+
+class MeetingUpdate(Strict):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    start: str | None = Field(default=None, min_length=10, max_length=40)
+    duration_minutes: int | None = Field(default=None, ge=15, le=480)
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)
+    location: str | None = Field(default=None, max_length=300)
+    description: str | None = Field(default=None, max_length=4000)
+    attendee_ids: list[str] | None = Field(default=None, max_length=30)
+
+    @field_validator("start")
+    @classmethod
+    def valid_start(cls, value):
+        return _aware_datetime(value)
+
+    @field_validator("timezone")
+    @classmethod
+    def valid_timezone(cls, value):
+        return _timezone(value) if value is not None else value
+
+
+InterviewFormat = Literal["ai_chat", "recruiter", "senior_hr"]
+
+
+class FormatDecision(Strict):
+    format: InterviewFormat
+
+
+class ConductedBy(Strict):
+    by: Literal["ai", "human"]

@@ -110,6 +110,26 @@ CREATE TABLE IF NOT EXISTS follow_up_tasks (
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT
 );
 CREATE INDEX IF NOT EXISTS follow_up_case_due ON follow_up_tasks(case_id, due_at, status);
+CREATE TABLE IF NOT EXISTS meetings (
+  id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+  start TEXT NOT NULL, duration_minutes INTEGER NOT NULL CHECK (duration_minutes BETWEEN 15 AND 480),
+  timezone TEXT NOT NULL, location TEXT NOT NULL DEFAULT '',
+  organizer_id TEXT NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','cancelled')),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS meetings_start ON meetings(start);
+CREATE TABLE IF NOT EXISTS meeting_attendees (
+  meeting_id TEXT NOT NULL REFERENCES meetings(id), user_id TEXT NOT NULL REFERENCES users(id),
+  PRIMARY KEY (meeting_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS interview_formats (
+  interview_id TEXT PRIMARY KEY REFERENCES interviews(id),
+  decided TEXT CHECK (decided IN ('ai_chat','recruiter','senior_hr')),
+  recommended_at_decision TEXT, decided_by TEXT REFERENCES users(id), decided_at TEXT,
+  conducted_by TEXT CHECK (conducted_by IN ('ai','human')),
+  conducted_by_set_by TEXT REFERENCES users(id), conducted_by_at TEXT
+);
 CREATE TABLE IF NOT EXISTS ledger (
   seq INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, actor TEXT NOT NULL,
   type TEXT NOT NULL, case_id TEXT, subject TEXT, body_json TEXT NOT NULL,

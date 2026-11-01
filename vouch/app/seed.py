@@ -98,5 +98,28 @@ def seed_demo() -> str:
         title="Review attack CV findings", task_type="review_cv",
         candidate_id=candidates[-1], assigned_to="U-REC",
         due_at=(start + timedelta(days=1, hours=2)).isoformat().replace("+00:00", "Z"), priority="urgent")
-    return (f"{message}; loaded {len(DEMO_CVS)} synthetic CVs (including 3 attack CVs), a preloaded sample "
+    meetings = _demo_meetings(recruiter)
+    return (f"{message}; loaded {len(DEMO_CVS)} synthetic CVs (including 3 attack CVs), {meetings} internal meetings, a preloaded sample "
             "shortlist, 2 interviews, and 3 follow-up tasks.")
+
+
+def _demo_meetings(recruiter: dict) -> int:
+    """Two fictional internal meetings so the agenda shows interviews next to non-recruitment work."""
+    from . import agenda
+    from .errors import ApiError
+    base = db.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    plan = [
+        ("Weekly HR team sync", 1, 9, 45, "Room 3 · HR floor", ["U-MGR", "U-ADM"], "Pipeline review and hiring priorities."),
+        ("Onboarding plan for new hires", 4, 14, 60, "Video call", ["U-ADM"], "Prepare first-week schedule and accounts."),
+    ]
+    made = 0
+    for title, day, hour, minutes, where, people, notes in plan:
+        start = (base + timedelta(days=day, hours=hour)).isoformat().replace("+00:00", "Z")
+        try:
+            agenda.create_meeting(recruiter, schemas.MeetingCreate(
+                title=title, start=start, duration_minutes=minutes, timezone="Africa/Tunis",
+                location=where, description=notes, attendee_ids=people))
+            made += 1
+        except ApiError:
+            pass        # a demo interview happens to sit there; skip rather than double-book
+    return made
