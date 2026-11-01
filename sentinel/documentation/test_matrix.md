@@ -33,6 +33,7 @@ Legend: `P` = same secure outcome required in both; `I` = AI-specific detection/
 | AU-002 | P | P | Deny unauthenticated access |
 | AU-003 | P | P | Deny recruiter approval/role escalation |
 | AU-004 | P | P | No cross-case list leakage |
+| AU-005 | P | P | No candidate identity before explicit shortlist confirmation |
 | AP-001 | P | P | No forged approval |
 | AP-002 | P | P | No second execution |
 | AP-003 | P | P | No modified-payload execution |
@@ -49,6 +50,8 @@ Legend: `P` = same secure outcome required in both; `I` = AI-specific detection/
 | AI-002 | I | P | No unsupported adverse fact as verified |
 | AI-003 | P | P | Action Gateway and human approval remain mandatory |
 | AI-004 | I | P | Do not disclose data outside authorization/policy |
+| AI-005 | P | P | Hiring-manager extraction redacts contact data |
+| AI-006 | P | P | Non-recruiter page render masks detected PII |
 
 ## Configuration integrity checks
 

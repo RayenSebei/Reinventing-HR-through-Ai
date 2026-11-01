@@ -47,3 +47,25 @@ def enforce(user: dict, rows: list[dict]) -> None:
         pseudos = {r["candidate_id"]: r.get("pseudonym", r["candidate_id"]) for r in rows}
         raise conflict("REVIEW_REQUIRED", "Open these dossiers before confirming the shortlist: "
                        + ", ".join(pseudos.get(c, c) for c in todo) + ".")
+
+
+def enforce_ranking(user: dict, case_id: str, version: int) -> None:
+    """Gate for confirming a whole ranking: the top N and every flagged row must have been opened."""
+    r = db.one("SELECT payload_json FROM rankings WHERE case_id=? AND version=?", (case_id, version))
+    if r:
+        enforce(user, db.loads(r["payload_json"], []))
+
+
+def enforce_selected(user: dict, case_id: str, candidate_ids: list[str]) -> None:
+    """Gate for an explicit shortlist: every selected candidate must have been opened by this user."""
+    todo = []
+    for cid in candidate_ids:
+        doc = db.one("SELECT sha256 FROM documents WHERE candidate_id=? AND case_id=?", (cid, case_id))
+        if doc and not db.one("SELECT 1 FROM reviews WHERE user_id=? AND candidate_id=? AND doc_sha256=?",
+                              (user["id"], cid, doc["sha256"])):
+            todo.append(cid)
+    if todo:
+        names = {r["id"]: r["pseudonym"] for r in db.q(
+            "SELECT id, pseudonym FROM candidates WHERE id IN (" + ",".join("?" for _ in todo) + ")", tuple(todo))}
+        raise conflict("REVIEW_REQUIRED", "Open these dossiers before confirming the shortlist: "
+                       + ", ".join(names.get(c, c) for c in todo) + ".")

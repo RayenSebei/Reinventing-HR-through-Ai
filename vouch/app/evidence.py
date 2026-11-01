@@ -39,10 +39,37 @@ def key_words(c: dict) -> list[str]:
     return [w for w in words if w not in STOPWORDS]
 
 
+_NEGATED = re.compile(
+    r"\b(?:no\s+(?:professional\s+)?experience\s+with|never\s+(?:used|worked\s+with|applied))\b",
+    re.IGNORECASE)
+
+
+def _negated(text: str) -> bool:
+    return bool(_NEGATED.search(text))
+
+
+def _quote_is_negated(quote: str, page: int, pages) -> bool:
+    lines = pages.get(page) or [line for page_lines in pages.values() for line in page_lines]
+    q = norm(quote)
+    if not q:
+        return False
+    pattern = re.compile(r"(?<![\w])" + re.escape(q) + r"(?![\w])")
+    return any(_negated(text) and pattern.search(norm(text)) for text, _ in lines)
+
+
+def _relevant_quote(quote: str, criterion: dict) -> bool:
+    q = norm(quote)
+    if len(q) < 8:
+        return False
+    terms = [term for term in criterion_terms(criterion) + key_words(criterion) if len(term) >= 3]
+    return any(_word_rx(term).search(q) for term in terms)
+
+
 def _page_texts(analysis) -> dict[int, list[tuple[str, list]]]:
     pages: dict[int, list] = {}
     for page, text, words in documents.visible_lines(analysis):
-        pages.setdefault(page, []).append((text, words))
+        if not documents.is_instruction_text(text):
+            pages.setdefault(page, []).append((text, words))
     return pages
 
 
@@ -57,10 +84,16 @@ def verify_quote(quote: str, page: int, pages) -> tuple[str, list]:
     q = norm(quote)
     if not q:
         return "NOT_FOUND", []
+    if _negated(q) or _quote_is_negated(q, page, pages):
+        return "NOT_FOUND", []
+    if len(q) < 8:
+        return "NEEDS_REVIEW", []
     joined = " ".join(norm(t) for t, _ in lines)
-    if q in joined:
-        hit = [w for t, w in lines if q in norm(t) or norm(t) in q]
-        return "SOURCED", _boxes_for([x for ws in hit for x in ws]) if hit else []
+    q_rx = re.compile(r"(?<![\w])" + re.escape(q) + r"(?![\w])")
+    if q_rx.search(joined):
+        hit = [w for t, w in lines if q_rx.search(norm(t))]
+        box_words = [x for ws in hit for x in ws]
+        return "SOURCED", _boxes_for(box_words) if box_words else []
     # fuzzy: best window of similar length
     best = 0.0
     toks = joined.split(" ")
@@ -79,6 +112,8 @@ def lexicon_match(c: dict, pages) -> dict:
     for page, lines in sorted(pages.items()):
         for text, words in lines:
             t = norm(text)
+            if _negated(t):
+                continue
             hits = [term for term in terms if _word_rx(term).search(t)]
             if hits:
                 repeats = max(len(_word_rx(h).findall(t)) for h in hits)
@@ -92,6 +127,8 @@ def lexicon_match(c: dict, pages) -> dict:
         for page, lines in sorted(pages.items()):
             for text, words in lines:
                 t = norm(text)
+                if _negated(t):
+                    continue
                 found = sum(1 for k in keys if _word_rx(k).search(t))
                 if found and (best is None or found > best[0]):
                     best = (found, text, page, words)
@@ -121,20 +158,30 @@ def build(criteria: list[dict], analysis: dict, findings: list[dict], doc_sha: s
             if cl.criterion_id in valid_ids:
                 model_claims.setdefault(cl.criterion_id, cl)
 
-    has_date_conflict = any(f["type"] == "DATE_CONFLICT" for f in findings)
+    has_date_conflict = any(f["type"] in ("DATE_CONFLICT", "DATE_RANGE_INVALID") for f in findings)
     stuffed = {t.casefold() for f in findings if f["type"] == "KEYWORD_DENSITY" for t in f.get("tokens", [])}
     items = []
     for c in criteria:
         item = None
         cl = model_claims.get(c["id"])
         if cl is not None:
-            status, boxes = verify_quote(cl.quote, cl.page, pages)
-            if status == "NOT_FOUND":
-                extra_findings.append({"type": "UNSUPPORTED_CLAIM", "severity": "high", "page": cl.page,
-                                       "excerpt": f"AI quoted text that is not in the CV: \"{cl.quote[:150]}\"", "boxes": []})
+            if _negated(cl.quote) or _quote_is_negated(cl.quote, cl.page, pages):
+                item = {"status": "NOT_FOUND", "quote": None, "page": None, "boxes": [],
+                        "note": "No positive evidence found; the quoted text is negated.",
+                        "source": f"model:{result.mode}"}
             else:
-                item = {"status": status, "quote": cl.quote, "page": cl.page, "boxes": boxes,
-                        "note": "" if status == "SOURCED" else "Close to the CV text but not exact.",
+                relevant = _relevant_quote(cl.quote, c)
+                status, boxes = ("NEEDS_REVIEW", []) if not relevant else verify_quote(cl.quote, cl.page, pages)
+                if status == "NOT_FOUND":
+                    extra_findings.append({"type": "UNSUPPORTED_CLAIM", "severity": "high", "page": cl.page,
+                                           "excerpt": f"AI quoted text that is not in the CV: \"{cl.quote[:150]}\"", "boxes": []})
+                item = {"status": status, "quote": cl.quote if status != "NOT_FOUND" else None,
+                        "page": cl.page if status != "NOT_FOUND" else None, "boxes": boxes,
+                        "note": ("Quote does not mention this criterion; review it manually."
+                                 if not relevant else
+                                 "" if status == "SOURCED" else
+                                 "No evidence found in the CV for this quote."
+                                 if status == "NOT_FOUND" else "Close to the CV text but not exact."),
                         "source": f"model:{result.mode}"}
         if item is None:
             item = {**lexicon_match(c, pages), "source": "lexicon"}

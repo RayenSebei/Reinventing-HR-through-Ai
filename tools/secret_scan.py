@@ -33,7 +33,7 @@ def load_allow(path: Path = ALLOW_FILE) -> set[tuple[str, str]]:
     if path.exists():
         for line in path.read_text(encoding="utf-8").splitlines():
             parts = line.split(None, 2)
-            if len(parts) == 3 and not line.lstrip().startswith("#") and len(parts[0]) >= 8:
+            if len(parts) == 3 and not line.lstrip().startswith("#") and (len(parts[0]) >= 8 or parts[0] == "tree"):
                 out.add((parts[0][:8], parts[1]))
     return out
 
@@ -55,7 +55,13 @@ def tracked_files(root: Path) -> list[Path]:
         return [p for p in root.rglob("*") if p.is_file() and ".git" not in p.parts]
 
 
-def scan_tree(root: Path) -> list[str]:
+# A "tree <path>" exception only covers lines that also carry this marker, so a real key added
+# to the same file is still reported.
+TEST_ONLY_MARKER = "not-for-production"
+
+
+def scan_tree(root: Path, allow: set[tuple[str, str]] | None = None) -> list[str]:
+    allow = load_allow() if allow is None else allow
     found = []
     for f in tracked_files(root):
         rel = f.relative_to(root).as_posix()
@@ -65,7 +71,9 @@ def scan_tree(root: Path) -> list[str]:
             text = f.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
-        found += [f"{rel}:{ln}: {name}" for ln, name in scan_text(text)]
+        lines = text.splitlines()
+        found += [f"{rel}:{ln}: {name}" for ln, name in scan_text(text)
+                  if not (("tree", rel) in allow and TEST_ONLY_MARKER in lines[ln - 1])]
     return found
 
 

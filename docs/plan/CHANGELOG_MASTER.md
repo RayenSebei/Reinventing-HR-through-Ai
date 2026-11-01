@@ -5,7 +5,7 @@
 | Date | IDs | Setting | Seam | Tests (red → green) | Baseline | Rollback |
 |---|---|---|---|---|---|---|
 | 2026-11-01 | R21, RB-03 | — | `db.connect` (busy_timeout, migrations), `db.wipe` keeps `schema_migrations` | readyz | 29/36/24 green | revert `db.py`, delete `migrations.py`; new tables are unused by old code |
-| 2026-11-01 | RB-14, WA-02 | `VOUCH_DEMO` | `config.validate`, `__main__`, `seed` | 13 red → green | green | revert `config.py`, `seed.py`, `__main__.py` |
+| 2026-11-01 | RB-14, WA-02 | `VOUCH_DEMO_MODE` | `config.validate`, `__main__`, `seed` | 13 red → green | green | revert `config.py`, `seed.py`, `__main__.py` |
 | 2026-11-01 | HL-07 | `VOUCH_OUTBOUND_MODE` (default `sink`) | `gateway._deliver` → `delivery.deliver` | 3 red → green | green | `VOUCH_OUTBOUND_MODE=live` restores sending; or revert `_deliver` |
 | 2026-11-01 | D11, HI-04, AG-02, OB-03 | — (enforced) | `gateway.create_proposal`, `edit_proposal`, `execute`; new `contacts.py`, 2 routes | 12 red → green | green after runner helper update | revert the 3 gateway seams + routes |
 | 2026-11-01 | HI-03 | `VOUCH_REVIEW_TOP_N` | `cases.confirm_ranking`; dossier route records the review; legacy UI opens the dossier after upload | 3 red → green | green after runner helper update | delete the `reviews.enforce` line |

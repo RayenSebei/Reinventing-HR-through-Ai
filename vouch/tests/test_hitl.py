@@ -51,7 +51,8 @@ def shortlist(c, review=True):
     rk = c.post(f"/api/cases/{CASE}/ranking", headers=H()).json()
     if review:
         open_all_dossiers(c, rk["rows"])
-    return c.post(f"/api/cases/{CASE}/ranking/{rk['version']}/confirm", headers=H())
+    return c.post(f"/api/cases/{CASE}/ranking/{rk['version']}/shortlist", headers=H(),
+                  json={"candidate_ids": [r["candidate_id"] for r in rk["rows"]]})
 
 
 def confirm_contact(c, cand_id, email=None):
@@ -151,25 +152,15 @@ def test_upload_response_is_not_a_review(client):
     assert shortlist(client, review=False).status_code == 409
 
 
-# --- RB-05: criteria change after analysis -------------------------------------------------
-def test_criteria_change_after_analysis_keeps_working(client):
+# --- RB-05 was not adopted: main locks criteria once evidence exists (CRITERIA_LOCKED, tested in
+# test_dashboard.py). A review gate still applies to the explicit shortlist. -------------------
+def test_shortlist_of_unopened_candidate_is_refused(client):
     d = upload(client)
-    crit = {"criteria": [{"label": "Python used in a software project", "kind": "skill", "weight": 60},
-                         {"label": "Version control (Git)", "kind": "skill", "weight": 40}]}
-    r = client.put(f"/api/cases/{CASE}/criteria", headers=H(), json=crit)
-    assert r.status_code == 200, r.text
-    dos = client.get(f"/api/candidates/{d['candidate_id']}/dossier", headers=H()).json()
-    assert {e["criterion"] for e in dos["evidence"]} == {"Python used in a software project", "Version control (Git)"}
-    archived = db.one("SELECT COUNT(*) AS n FROM evidence_archive WHERE candidate_id=?", (d["candidate_id"],))["n"]
-    assert archived == 3
-
-
-def test_criteria_change_supersedes_confirmed_shortlist(client):
-    upload(client)
-    assert shortlist(client).status_code == 200
-    crit = {"criteria": [{"label": "Version control (Git)", "kind": "skill", "weight": 100}]}
-    assert client.put(f"/api/cases/{CASE}/criteria", headers=H(), json=crit).status_code == 200
-    assert client.get(f"/api/cases/{CASE}/ranking", headers=H()).json()["status"] in (None, "DRAFT")
+    rk = client.post(f"/api/cases/{CASE}/ranking", headers=H()).json()
+    r = client.post(f"/api/cases/{CASE}/ranking/{rk['version']}/shortlist", headers=H(),
+                    json={"candidate_ids": [d["candidate_id"]]})
+    assert r.status_code == 409 and r.json()["error"]["code"] == "REVIEW_REQUIRED"
+    assert not db.q("SELECT 1 FROM shortlisted_candidates WHERE candidate_id=?", (d["candidate_id"],))
 
 
 # --- HL-01/HL-02 backstop: the database refuses an unapproved send --------------------------

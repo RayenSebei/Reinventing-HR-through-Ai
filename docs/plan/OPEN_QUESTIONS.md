@@ -1,6 +1,6 @@
 # Open questions for the team
 
-1. **Confirm the decisions in DECISIONS.md**, especially the two that change how you start the demo: `VOUCH_DEMO=1` for the `demo1234` password, and `VOUCH_OUTBOUND_MODE=live` to send through n8n.
+1. **Confirm the decisions in DECISIONS.md**, especially the two that change how you start the demo: `VOUCH_DEMO_MODE=1` for the `demo1234` password, and `VOUCH_OUTBOUND_MODE=live` to send through n8n.
 2. **Companion security prompt** `docs/security/HARDENING_PROMPT.md` is missing from the repo. Add it, or confirm the master plan's wording is enough.
 3. **n8n version to pin** for the demo (master plan decision 12). The workflow is verified against n8n 2.46.0 source.
 4. **Remove Duplicates in n8n:** test on your pinned n8n what the webhook answers when a duplicate is dropped; then decide whether to add it (RESIDUAL_RISK.md row 1).

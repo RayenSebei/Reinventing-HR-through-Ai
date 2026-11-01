@@ -58,6 +58,14 @@ CREATE TABLE IF NOT EXISTS rankings (
   payload_json TEXT NOT NULL, created_by TEXT NOT NULL, confirmed_by TEXT, confirmed_at TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS shortlisted_candidates (
+  case_id TEXT NOT NULL REFERENCES cases(id), ranking_version INTEGER NOT NULL,
+  candidate_id TEXT NOT NULL REFERENCES candidates(id),
+  PRIMARY KEY (case_id, ranking_version, candidate_id)
+);
+CREATE TABLE IF NOT EXISTS app_policy (
+  key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS proposals (
   id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id),
   candidate_id TEXT NOT NULL REFERENCES candidates(id), kind TEXT NOT NULL,
@@ -74,11 +82,63 @@ CREATE TABLE IF NOT EXISTS outbox (
   case_id TEXT NOT NULL, payload_json TEXT NOT NULL, delivery_status TEXT NOT NULL,
   delivery_detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS interviews (
+  id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id),
+  candidate_id TEXT NOT NULL REFERENCES candidates(id),
+  interviewer_id TEXT NOT NULL REFERENCES users(id),
+  interview_type TEXT NOT NULL CHECK (interview_type IN ('screening','technical','behavioral','final','other')),
+  scheduled_start TEXT NOT NULL, duration_minutes INTEGER NOT NULL CHECK (duration_minutes BETWEEN 15 AND 240),
+  timezone TEXT NOT NULL, location TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','confirmed','completed','cancelled')),
+  preparation_notes TEXT NOT NULL DEFAULT '', feedback TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  cancelled_at TEXT, completed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS interviews_case_start ON interviews(case_id, scheduled_start);
+CREATE INDEX IF NOT EXISTS interviews_interviewer_start ON interviews(interviewer_id, scheduled_start);
+CREATE TABLE IF NOT EXISTS follow_up_tasks (
+  id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id),
+  title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+  task_type TEXT NOT NULL CHECK (task_type IN ('review_cv','review_assessment','approve_communication',
+    'send_approved_communication','schedule_interview','confirm_interview','collect_feedback','follow_up','other')),
+  candidate_id TEXT REFERENCES candidates(id), interview_id TEXT REFERENCES interviews(id),
+  proposal_id TEXT REFERENCES proposals(id), assigned_to TEXT REFERENCES users(id),
+  due_at TEXT, priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('low','normal','high','urgent')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','completed')),
+  origin TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual','workflow','demo')),
+  dedupe_key TEXT UNIQUE, created_by TEXT NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS follow_up_case_due ON follow_up_tasks(case_id, due_at, status);
+CREATE TABLE IF NOT EXISTS meetings (
+  id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+  start TEXT NOT NULL, duration_minutes INTEGER NOT NULL CHECK (duration_minutes BETWEEN 15 AND 480),
+  timezone TEXT NOT NULL, location TEXT NOT NULL DEFAULT '',
+  organizer_id TEXT NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','cancelled')),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS meetings_start ON meetings(start);
+CREATE TABLE IF NOT EXISTS meeting_attendees (
+  meeting_id TEXT NOT NULL REFERENCES meetings(id), user_id TEXT NOT NULL REFERENCES users(id),
+  PRIMARY KEY (meeting_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS interview_formats (
+  interview_id TEXT PRIMARY KEY REFERENCES interviews(id),
+  decided TEXT CHECK (decided IN ('ai_chat','recruiter','senior_hr')),
+  recommended_at_decision TEXT, decided_by TEXT REFERENCES users(id), decided_at TEXT,
+  conducted_by TEXT CHECK (conducted_by IN ('ai','human')),
+  conducted_by_set_by TEXT REFERENCES users(id), conducted_by_at TEXT
+);
 CREATE TABLE IF NOT EXISTS ledger (
   seq INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, actor TEXT NOT NULL,
   type TEXT NOT NULL, case_id TEXT, subject TEXT, body_json TEXT NOT NULL,
-  prev_hash TEXT NOT NULL, hash TEXT NOT NULL
+  prev_hash TEXT NOT NULL, hash TEXT NOT NULL, mac TEXT NOT NULL DEFAULT ''
 );
+CREATE TRIGGER IF NOT EXISTS ledger_no_update BEFORE UPDATE ON ledger
+BEGIN SELECT RAISE(ABORT, 'ledger is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS ledger_no_delete BEFORE DELETE ON ledger
+BEGIN SELECT RAISE(ABORT, 'ledger is append-only'); END;
 """
 
 _conn: sqlite3.Connection | None = None
@@ -107,8 +167,14 @@ def connect() -> sqlite3.Connection:
         _conn.row_factory = sqlite3.Row
         _conn.execute("PRAGMA journal_mode=WAL")
         _conn.execute("PRAGMA foreign_keys=ON")
-        _conn.execute("PRAGMA busy_timeout=5000")   # RB-03: wait for a lock instead of failing at once
         _conn.executescript(SCHEMA)
+        columns = {row["name"] for row in _conn.execute("PRAGMA table_info(ledger)").fetchall()}
+        if "mac" not in columns:
+            _conn.execute("ALTER TABLE ledger ADD COLUMN mac TEXT NOT NULL DEFAULT ''")
+        interview_columns = {row["name"] for row in _conn.execute("PRAGMA table_info(interviews)").fetchall()}
+        if interview_columns and "completed_at" not in interview_columns:
+            _conn.execute("ALTER TABLE interviews ADD COLUMN completed_at TEXT")
+        _conn.execute("PRAGMA busy_timeout=5000")   # RB-03: wait for a lock instead of failing at once
         from . import migrations
         migrations.apply(_conn)
     return _conn
@@ -142,6 +208,8 @@ def wipe() -> None:
     """Delete everything (test mode / demo reset)."""
     conn = connect()
     with _lock:
+        conn.execute("DROP TRIGGER IF EXISTS ledger_no_update")
+        conn.execute("DROP TRIGGER IF EXISTS ledger_no_delete")
         tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
                                                 "AND name <> 'schema_migrations'")]
         conn.execute("PRAGMA foreign_keys=OFF")
@@ -149,6 +217,7 @@ def wipe() -> None:
             conn.execute(f"DELETE FROM {t}")
         conn.execute("DELETE FROM sqlite_sequence")
         conn.execute("PRAGMA foreign_keys=ON")
+        conn.executescript(SCHEMA)
 
 
 def dumps(obj) -> str:

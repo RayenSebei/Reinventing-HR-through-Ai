@@ -62,3 +62,14 @@ def test_allow_list_skips_only_the_named_commit_and_file(repo):
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True).stdout.strip()
     found = secret_scan.scan_history(repo, allow={(head[:8], "settings.env")})
     assert len(found) == 1 and "other.env" in found[0]
+
+
+def test_tree_exception_covers_only_marked_test_lines(repo):
+    cfg = repo / "pw.config.ts"
+    cfg.write_text("VOUCH_JWT_SECRET: 'pw-test-secret-not-for-production',\n")
+    _git(repo, "add", ".")
+    allow = {("tree", "pw.config.ts")}
+    assert secret_scan.scan_tree(repo, allow) == []
+    assert secret_scan.scan_tree(repo, set()) != []            # no exception: still reported
+    cfg.write_text(cfg.read_text() + FAKE_HMAC_LINE + "\n")      # a real-looking key in the same file
+    assert len(secret_scan.scan_tree(repo, allow)) == 1

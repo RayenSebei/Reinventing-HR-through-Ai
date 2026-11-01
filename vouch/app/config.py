@@ -22,6 +22,7 @@ APPROVAL_MINUTES = int(os.environ.get("VOUCH_APPROVAL_MINUTES", "15"))
 
 # Test mode enables /api/_test/* (fixture reset). Never enable in production.
 TEST_MODE = os.environ.get("VOUCH_TEST_MODE") == "1"
+DEMO_MODE = os.environ.get("VOUCH_DEMO_MODE") == "1"
 
 # AI model: "lexicon" (no AI, deterministic), "openai" (any OpenAI-compatible
 # chat-completions endpoint), "ollama" (local), "replay" (recorded answers),
@@ -58,9 +59,6 @@ def outbound_mode_from(env) -> str:
 
 OUTBOUND_MODE = outbound_mode_from(os.environ)
 
-# Demo mode (WA-02): only then do seeded users get the documented password.
-DEMO = os.environ.get("VOUCH_DEMO") == "1"
-
 # Review gate (HI-03): before confirming a shortlist, the confirming recruiter must have opened
 # the top N dossiers and every flagged one, through the API.
 REVIEW_TOP_N = _int("VOUCH_REVIEW_TOP_N", 3)
@@ -80,6 +78,29 @@ for d in (DATA_DIR, ORIGINALS_DIR, REPLAY_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 
+def _ledger_key() -> str:
+    key = os.environ.get("VOUCH_LEDGER_KEY")
+    if key:
+        if len(key.encode("utf-8")) < 32:
+            raise RuntimeError("VOUCH_LEDGER_KEY must contain at least 32 bytes.")
+        return key
+    path = DATA_DIR / ".ledger-key"
+    try:
+        key = secrets.token_hex(32)
+        with path.open("x", encoding="ascii") as f:
+            f.write(key)
+        path.chmod(0o600)
+        return key
+    except FileExistsError:
+        key = path.read_text(encoding="ascii").strip()
+        if len(key) < 64:
+            raise RuntimeError("The stored ledger key is invalid.")
+        return key
+
+
+LEDGER_KEY = _ledger_key()
+
+
 def validate(env) -> list[str]:
     """RB-14: return readable problems with a settings mapping (empty list = OK).
     Messages name the variable, never its value, so secrets are not printed."""
@@ -92,8 +113,8 @@ def validate(env) -> list[str]:
             problems.append("VOUCH_OUTBOUND_MODE=live needs VOUCH_N8N_WEBHOOK_URL.")
         if len(env.get("VOUCH_N8N_HMAC_SECRET", "")) < 32:
             problems.append("VOUCH_OUTBOUND_MODE=live needs VOUCH_N8N_HMAC_SECRET (at least 32 characters).")
-        if env.get("VOUCH_DEMO") == "1":
-            problems.append("VOUCH_DEMO=1 (known demo password) is not allowed with VOUCH_OUTBOUND_MODE=live.")
+        if env.get("VOUCH_DEMO_MODE") == "1":
+            problems.append("VOUCH_DEMO_MODE=1 (known demo password) is not allowed with VOUCH_OUTBOUND_MODE=live.")
     model = env.get("VOUCH_MODEL", "lexicon")
     if model not in ("lexicon", "openai", "ollama", "replay", "stub"):
         problems.append("VOUCH_MODEL must be lexicon, openai, ollama, replay or stub.")

@@ -1,0 +1,1 @@
+Synthetic contrast fixture: black text is painted over a black bar.

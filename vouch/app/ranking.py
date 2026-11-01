@@ -6,11 +6,14 @@ never penalised or hidden (a planted trick may not be the candidate's own doing)
 """
 from __future__ import annotations
 
+from . import policy
+
 VALUE = {"SOURCED": 2, "VERIFIED": 2, "NEEDS_REVIEW": 1, "NOT_FOUND": 0}   # half-points, kept as ints
 
 
 def rank(criteria: list[dict], candidates: list[dict]) -> list[dict]:
     rows = []
+    review_threshold = policy.read()["review_weight_threshold"]
     for cand in candidates:
         ev = {e["criterion_id"]: e for e in cand["evidence"]}
         half_points = 0
@@ -25,9 +28,9 @@ def rank(criteria: list[dict], candidates: list[dict]) -> list[dict]:
                 missing.append(c["label"])
             if e["status"] == "NEEDS_REVIEW":
                 review_weight += c["weight"]
-        score = round(half_points / 2)   # 0..100, integer
+        score = (half_points + 1) // 2   # round half-points up deterministically
         flags = []
-        if review_weight > 30:
+        if review_weight > review_threshold:
             flags.append("BORDERLINE_REVIEW")
         if cand["finding_count"]:
             flags.append("DOCUMENT_FINDINGS")

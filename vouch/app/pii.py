@@ -7,15 +7,20 @@ from __future__ import annotations
 
 import re
 
+_PHONE_LABEL = re.compile(r"(?im)^\s*(?:phone|tel|tél|téléphone|mobile)\s*[:：]?[^\n]*")
+_PLUS_PHONE = re.compile(r"\+\d(?:[\d\s().-]*\d)")
+_BARE_PHONE = re.compile(r"(?<![\d/.-])\d{8,15}(?![\d/.-])")
+
 RULES = [
+    (_PHONE_LABEL, "[PHONE]"),
+    (_PLUS_PHONE, lambda m: "[PHONE]" if 8 <= sum(c.isdigit() for c in m.group(0)) <= 15 else m.group(0)),
+    (_BARE_PHONE, "[PHONE]"),
     (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[EMAIL]"),
     (re.compile(r"https?://\S+|www\.\S+"), "[URL]"),
-    (re.compile(r"(?:\+\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?){2,4}\d{2,4}"), lambda m: "[PHONE]" if sum(c.isdigit() for c in m.group(0)) >= 8 else m.group(0)),
-    (re.compile(r"\b(?:born|né|née|date of birth|date de naissance|DOB)\b[^\n]{0,40}", re.I), "[BIRTH DATE]"),
-    (re.compile(r"\b(?:address|adresse|العنوان)\s*[:：][^\n]*", re.I), "[ADDRESS]"),
-    (re.compile(r"\b(?:name|nom|الاسم)\s*[:：][^\n]*", re.I), "[NAME]"),
-    (re.compile(r"\b(?:gender|sexe|genre|nationality|nationalité|age|âge|marital status|état civil|religion)\s*[:：][^\n]*", re.I), "[PERSONAL]"),
-    (re.compile(r"\b(?:phone|tel|tél|téléphone|mobile)\s*[:：][^\n]*", re.I), "[PHONE]"),
+    (re.compile(r"(?im)^\s*(?:born|né|née|date of birth|date de naissance|DOB)\b[^\n]{0,40}"), "[BIRTH DATE]"),
+    (re.compile(r"(?im)^\s*(?:address|adresse|العنوان)\s*[:：][^\n]*"), "[ADDRESS]"),
+    (re.compile(r"(?im)^\s*(?:name|nom|الاسم)\s*[:：][^\n]*"), "[NAME]"),
+    (re.compile(r"(?im)^\s*(?:gender|sexe|genre|nationality|nationalité|age|âge|marital status|état civil|religion)\s*[:：][^\n]*"), "[PERSONAL]"),
 ]
 
 

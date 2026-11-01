@@ -13,7 +13,7 @@ Baseline green (29 / 36 / 24), every G row has a verdict (GROUND_TRUTH.md), no a
 | RB-09 / RB-06 `/api/healthz`, `/api/readyz` (integrity, ledger, schema, writable) | DONE | `test_healthz_and_readyz` |
 | RB-14 config validation, fail-fast start, `.env.example` | DONE | `test_config_and_n8n.py` (9 cases) |
 | HL-07 kill switch `VOUCH_OUTBOUND_MODE=disabled|sink|live` (default sink) | DONE | 3 tests, drill row, fuzzer I4 |
-| WA-02 demo password only with `VOUCH_DEMO=1` | DONE | 2 tests |
+| WA-02 demo password only with `VOUCH_DEMO_MODE=1` | DONE | 2 tests |
 | DL-06 secret scan (tree + history), in CI | DONE | `tools/secret_scan.py`, 4 tests |
 | TQ-04 CI runs all suites + drill + secret scan | DONE (not yet run on GitHub) | `.github/workflows/checks.yml` |
 | TQ-06 `python -m tools.verify --fast/--all` | DONE | `reports/verify_*.md` |

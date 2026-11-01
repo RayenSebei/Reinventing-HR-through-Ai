@@ -161,7 +161,7 @@ Put this in the README and say it once in the pitch:
 - **Ledger vs deletion:** the ledger stores **hashes and IDs, never CV content or contact data**. Deleting a CV leaves a ledger entry ("document X deleted under retention") and the chain stays verifiable.
 
 ### D11. Approval binding
-- **Decision:** the canonical payload is JSON per RFC 8785 (JCS) or sorted-key compact JSON in UTF-8. `payload_sha256` is stored on the proposal. The approval row holds (proposal_id, payload_sha256, approver_id, approver_role, case_id, nonce, expires_at, used_at). The gateway recomputes the hash from the *stored current* payload. A mismatch, expiry, use, wrong role, proposer == approver, or a case outside the approver's scope causes a deny plus a ledger event. Single use is enforced by an atomic `UPDATE … WHERE used_at IS NULL`.
+- **Decision:** the current implementation canonicalizes JSON with sorted keys, compact separators, UTF-8 encoding, and no floating-point values; `payload_sha256` is SHA-256 of those canonical bytes. This is not a claim of full RFC 8785/JCS compatibility. The approval row stores the payload hash and nonce; execution recomputes the hash from the stored current payload and checks the nonce against its matching append-only ledger event. A mismatch, expiry, prior use, wrong role, self-approval, or case outside the approver's scope is denied and recorded in the ledger. Single use is enforced inside the execution transaction.
 
 ### D11b. Request hardening (forced by repo scenarios AU-003, AU-004, AP-001, AP-003, EI-004)
 - Every Pydantic request model uses `extra="forbid"`, so a client-supplied `role`, `approved_by`, `approval_token`, `owner_id` or `document_id` is rejected with 422.

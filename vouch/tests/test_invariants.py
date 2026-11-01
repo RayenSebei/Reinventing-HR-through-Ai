@@ -56,7 +56,8 @@ def world():
         rk = c.post(f"/api/cases/{CASE}/ranking", headers=H("U-REC")).json()
         for row in rk["rows"]:
             c.get(f"/api/candidates/{row['candidate_id']}/dossier", headers=H("U-REC"))
-        assert c.post(f"/api/cases/{CASE}/ranking/{rk['version']}/confirm", headers=H("U-REC")).status_code == 200
+        assert c.post(f"/api/cases/{CASE}/ranking/{rk['version']}/shortlist", headers=H("U-REC"),
+                      json={"candidate_ids": [r["candidate_id"] for r in rk["rows"]]}).status_code == 200
         yield c, cands, sent
 
 

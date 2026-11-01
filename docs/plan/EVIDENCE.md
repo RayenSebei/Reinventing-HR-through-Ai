@@ -13,7 +13,7 @@ Every green claim below is reproduced by `python -m tools.verify --all` (latest 
 | HL-07 | `disabled` holds, `sink` never calls n8n, `live` calls once | red run: no such setting | 3 tests | drill row red; fuzzer I4 | — |
 | RB-07 | Retry re-sends the same approved bytes, never after DELIVERED, attempts recorded | red run: no retry route | 2 tests | drill row red; fuzzer I9 | lost-answer duplicate (RESIDUAL_RISK.md) |
 | HL-04 / R25 | n8n sends exactly the approved text (no attribution) and never compares raw signatures | red run: `appendAttribution` absent, raw compare | 5 workflow lint tests | drill row red | not yet run on a real n8n |
-| RB-14 / WA-02 | Unsafe settings refuse to start; no known password without `VOUCH_DEMO=1`; secrets never printed | red run: `config.validate` missing | 13 tests | — | — |
+| RB-14 / WA-02 | Unsafe settings refuse to start; no known password without `VOUCH_DEMO_MODE=1`; secrets never printed | red run: `config.validate` missing | 13 tests | — | — |
 | DL-06 | Planted keys are found in tree and history; this repo is clean | — (tool is new) | 4 tests; `secret scan: 0 finding(s)` | — | history here was shallow; CI uses full history |
 | HI-07 | Random sequences of real API actions never break I1, I2, I4, I5, I6, I9 | the fuzzer catches the removed recipient re-check with a replayable seed (drill) | `test_invariants.py` | see below | other invariants need later phases |
 | TQ-03 | Each listed protection, when removed, turns its tests red | — | `evidence/drill_run.txt` | **9/9 red** | — |

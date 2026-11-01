@@ -36,7 +36,7 @@ OFFICIAL = {
     ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
       "VOUCH_N8N_HMAC_SECRET": "short"}, "VOUCH_N8N_HMAC_SECRET"),
     ({"VOUCH_OUTBOUND_MODE": "live", "VOUCH_N8N_WEBHOOK_URL": "https://n8n.example.invalid/w",
-      "VOUCH_N8N_HMAC_SECRET": "x" * 32, "VOUCH_DEMO": "1"}, "VOUCH_DEMO"),
+      "VOUCH_N8N_HMAC_SECRET": "x" * 32, "VOUCH_DEMO_MODE": "1"}, "VOUCH_DEMO_MODE"),
     ({"VOUCH_MODEL": "openai"}, "VOUCH_OPENAI_API_KEY"),
     ({"VOUCH_REVIEW_TOP_N": "0"}, "VOUCH_REVIEW_TOP_N"),
 ])
@@ -64,7 +64,7 @@ def test_default_outbound_mode_is_sink():
 # --- WA-02: no known password unless demo mode is explicit ----------------------------------
 def test_seed_password_is_random_without_demo_flag(monkeypatch):
     from app import seed as seedmod
-    monkeypatch.delenv("VOUCH_DEMO", raising=False)
+    monkeypatch.delenv("VOUCH_DEMO_MODE", raising=False)
     msg = seedmod.seed()
     assert "demo1234" not in msg
     from app import db
@@ -75,7 +75,7 @@ def test_seed_password_is_random_without_demo_flag(monkeypatch):
 def test_seed_uses_demo_password_only_with_flag(monkeypatch):
     from app import db, seed as seedmod
     from app.security import check_password
-    monkeypatch.setenv("VOUCH_DEMO", "1")
+    monkeypatch.setenv("VOUCH_DEMO_MODE", "1")
     seedmod.seed()
     assert check_password("demo1234", db.one("SELECT pw_hash FROM users WHERE id='U-REC'")["pw_hash"])
 

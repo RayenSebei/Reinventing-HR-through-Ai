@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   PRIMARY KEY (user_id, candidate_id, doc_sha256)
 );
 """),
-    (3, "evidence archive (RB-05: criteria change keeps old evidence)", """
+    (3, "evidence archive (reserved: RB-05 re-evaluation was not adopted; main locks criteria after analysis)", """
 CREATE TABLE IF NOT EXISTS evidence_archive (
   id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, criterion_id TEXT NOT NULL, criterion_label TEXT NOT NULL,
   status TEXT NOT NULL, quote TEXT, page INTEGER, source TEXT NOT NULL, note TEXT NOT NULL DEFAULT '',

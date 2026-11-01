@@ -30,7 +30,7 @@ def _attempts(oid: str) -> int:
     return db.one("SELECT COUNT(*) AS n FROM delivery_attempts WHERE outbox_id=?", (oid,))["n"]
 
 
-def deliver(oid: str, payload_json: str, pid: str, actor: str = "gateway") -> str:
+def deliver(oid: str, payload_json: str, pid: str, actor: str = "gateway", case_id: str | None = None) -> str:
     mode = config.OUTBOUND_MODE
     detail = ""
     if mode == "disabled":
@@ -51,7 +51,7 @@ def deliver(oid: str, payload_json: str, pid: str, actor: str = "gateway") -> st
         conn.execute("INSERT INTO delivery_attempts (outbox_id, attempt, mode, status, detail, actor, ts) VALUES (?,?,?,?,?,?,?)",
                      (oid, n + 1, mode, status, detail, actor, db.now()))
         conn.execute("UPDATE outbox SET delivery_status=?, delivery_detail=? WHERE id=?", (status, detail, oid))
-        ledger.append(conn, actor, "DELIVERY_" + status, None, oid, {"detail": detail, "attempt": n + 1, "mode": mode})
+        ledger.append(conn, actor, "DELIVERY_" + status, case_id, oid, {"detail": detail, "attempt": n + 1, "mode": mode})
     return status
 
 
@@ -73,5 +73,5 @@ def retry(user: dict, oid: str) -> dict:
                   "ORDER BY a.used_at DESC LIMIT 1", (row["proposal_id"],))
     if not appr or payload_hash(db.loads(row["payload_json"])) != appr["payload_sha256"]:
         raise conflict("APPROVAL_PAYLOAD_MISMATCH", "The stored action no longer matches what the manager approved.")
-    status = deliver(oid, row["payload_json"], row["proposal_id"], actor=user["id"])
+    status = deliver(oid, row["payload_json"], row["proposal_id"], actor=user["id"], case_id=row["case_id"])
     return {"outbox_id": oid, "delivery_status": status, "attempts": _attempts(oid)}

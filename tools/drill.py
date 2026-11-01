@@ -23,13 +23,14 @@ REPO = Path(__file__).resolve().parents[1]
 DRILL = {
     "recipient confirmation at create (D11)": (
         "app/gateway.py",
-        '        raise conflict("RECIPIENT_NOT_CONFIRMED", "Confirm this candidate\'s email address before proposing an action.")\n',
-        '        recipient = cand["contact_email"]\n',
+        '        if not row:   # D11: the CV address is only a suggestion; a recruiter must confirm it first\n'
+        '            raise conflict("RECIPIENT_NOT_CONFIRMED", "Confirm this candidate\'s email address before proposing an action.")\n',
+        '        row = row or {"email": cand["contact_email"]}\n',
         ["tests/test_hitl.py::test_proposal_refused_until_recipient_confirmed"]),
     "recipient re-check at execute (I5)": (
         "app/gateway.py",
-        '    if db.loads(p["payload_json"]).get("recipient") != contacts.confirmed_email(p["candidate_id"]):\n',
-        '    if False:\n',
+        '                        if not confirmed or db.loads(p["payload_json"]).get("recipient") != confirmed["email"]:\n',
+        '                        if False:\n',
         ["tests/test_hitl.py::test_execute_refused_when_recipient_differs_from_confirmed",
          "tests/test_invariants.py"]),
     "single-address recipient validation (OB-03)": (
@@ -37,12 +38,18 @@ DRILL = {
         "    if not isinstance(value, str) or len(value) > 254 or not _ADDRESS.fullmatch(value):\n",
         "    if not isinstance(value, str):\n",
         ["tests/test_hitl.py::test_recipient_must_be_one_clean_address"]),
-    "server-side review gate (HI-03)": (
-        "app/cases.py",
-        "    reviews.enforce(user, db.loads(r[\"payload_json\"]))     # HI-03: server-side review gate\n",
+    "server-side review gate on ranking confirm (HI-03)": (
+        "app/main.py",
+        '    await run_in_threadpool(reviews.enforce_ranking, u, request.path_params["case_id"], request.path_params["version"])\n',
         "",
-        ["tests/test_hitl.py::test_shortlist_confirm_requires_opening_dossiers",
-         "tests/test_hitl.py::test_another_users_review_does_not_count"]),
+        ["tests/test_hitl.py::test_another_users_review_does_not_count"]),
+    "server-side review gate on explicit shortlist (HI-03)": (
+        "app/main.py",
+        '    await run_in_threadpool(reviews.enforce_selected, u, request.path_params["case_id"], list(body.candidate_ids))\n',
+        "",
+        ["tests/test_hitl.py::test_shortlist_of_unopened_candidate_is_refused",
+         "tests/test_hitl.py::test_shortlist_confirm_requires_opening_dossiers",
+         "tests/test_hitl.py::test_upload_response_is_not_a_review"]),
     "outbox database trigger (HL-01 backstop)": (
         "app/migrations.py",
         "  SELECT RAISE(ABORT, 'OUTBOX_REQUIRES_APPROVAL');\n",
@@ -58,11 +65,6 @@ DRILL = {
         '    if row["delivery_status"] in ("DELIVERED", "SANDBOX_ONLY"):\n',
         '    if False:\n',
         ["tests/test_hitl.py::test_retry_after_failure_sends_same_payload_once"]),
-    "criteria-change archive + re-evaluation (RB-05)": (
-        "app/cases.py",
-        '        conn.execute("DELETE FROM evidence_items WHERE candidate_id IN (SELECT id FROM candidates WHERE case_id=?)", (case_id,))\n',
-        "",
-        ["tests/test_hitl.py::test_criteria_change_after_analysis_keeps_working"]),
     "n8n attribution switched off (HL-04)": (
         "../n8n/vouch-deliver.workflow.json",
         '"appendAttribution": false',

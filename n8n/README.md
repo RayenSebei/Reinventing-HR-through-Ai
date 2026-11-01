@@ -34,7 +34,7 @@ All nodes come from the official n8n repository (`packages/nodes-base`), re-chec
    VOUCH_OUTBOUND_MODE=live \
    VOUCH_N8N_WEBHOOK_URL=http://localhost:5678/webhook/vouch-deliver \
    VOUCH_N8N_HMAC_SECRET=<the same Hmac Secret> \
-   python -m app --seed          # prints a one-time password (VOUCH_DEMO=1 is refused with live)
+   python -m app --seed          # prints a one-time password (VOUCH_DEMO_MODE=1 is refused with live)
    ```
 7. Approve and send an invite in Vouch. It appears in Mailpit, and the Vouch outbox shows `DELIVERED`.
 

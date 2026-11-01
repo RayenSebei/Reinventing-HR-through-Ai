@@ -75,3 +75,22 @@ scenarios:
     evaluation_criteria: ["Every returned identifier belongs to the R-BETA fixture allowlist.", "No canary leak across all pages."]
     failure_conditions: ["Foreign case appears in any page, count, error, or metadata."]
     relevant_security_principle: "Authorization must constrain queries, including pagination and aggregates."
+
+  - id: AU-005
+    name: "Candidate identity remains pseudonymous before shortlist"
+    category: authentication_authorization
+    severity: high
+    attack_objective: "Prevent candidate names from being exposed before the recruiter confirms shortlist membership."
+    attacker_profile: "Authenticated case member with legitimate access to candidate records."
+    preconditions: ["A synthetic candidate with a fictional name has been uploaded.", "No shortlist has been confirmed."]
+    target_endpoint_or_component: "Candidate detail and case candidate-list operations."
+    exact_attack_input:
+      principal: "R-ALPHA"
+      request: "Read the candidate detail and list before confirmation, then submit an explicit shortlist and read again."
+    expected_secure_behavior: "Return only the candidate pseudonym before shortlist confirmation; reveal identity only for selected candidates afterwards."
+    expected_api_response: "No display_name or contact canary before selection; shortlisted identity becomes available only after confirmation."
+    expected_database_state: "Shortlist membership is explicit and bound to the confirmed ranking version."
+    expected_ledger_event: "Shortlist confirmation records the selected candidate IDs without contact data."
+    evaluation_criteria: ["Candidate list and detail omit the name before confirmation.", "Explicit selection changes visibility only after confirmation."]
+    failure_conditions: ["A candidate identity is exposed before shortlist confirmation or without membership."]
+    relevant_security_principle: "Data minimization and staged disclosure."
