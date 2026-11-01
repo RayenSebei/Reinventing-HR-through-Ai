@@ -17,6 +17,10 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     baseURL: `http://127.0.0.1:${port}`,
     trace: 'retain-on-failure',
+    launchOptions: {
+      executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined,
+      args: ['--disable-dev-shm-usage'],
+    },
   },
   webServer: {
     command: `python -m app --seed --yes --host 127.0.0.1 --port ${port}`,

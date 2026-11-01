@@ -48,6 +48,15 @@ MAX_LIST_LIMIT = 100
 # Data retention statement shown in /api/meta and the README.
 RETENTION_DAYS = int(os.environ.get("VOUCH_RETENTION_DAYS", "180"))
 
+# Candidate chat interview. The browser countdown is informational; the server
+# enforces this limit independently. Set PUBLIC_BASE_URL to the externally
+# reachable origin when generating invitation links.
+PUBLIC_BASE_URL = os.environ.get("VOUCH_PUBLIC_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+INTERVIEW_MINUTES = int(os.environ.get("VOUCH_INTERVIEW_MINUTES", "20"))
+INTERVIEW_INVITE_HOURS = int(os.environ.get("VOUCH_INTERVIEW_INVITE_HOURS", "72"))
+INTERVIEW_MAX_ANSWER_CHARS = int(os.environ.get("VOUCH_INTERVIEW_MAX_ANSWER_CHARS", "2000"))
+INTERVIEW_RATE_PER_MINUTE = int(os.environ.get("VOUCH_INTERVIEW_RATE_PER_MINUTE", "60"))
+
 for d in (DATA_DIR, ORIGINALS_DIR, REPLAY_DIR):
     d.mkdir(parents=True, exist_ok=True)
 

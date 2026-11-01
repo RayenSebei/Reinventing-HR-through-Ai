@@ -110,6 +110,40 @@ CREATE TABLE IF NOT EXISTS follow_up_tasks (
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT
 );
 CREATE INDEX IF NOT EXISTS follow_up_case_due ON follow_up_tasks(case_id, due_at, status);
+CREATE TABLE IF NOT EXISTS chat_interview_sessions (
+  id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id),
+  candidate_id TEXT NOT NULL REFERENCES candidates(id), proposal_id TEXT REFERENCES proposals(id),
+  token_hash TEXT UNIQUE NOT NULL, expires_at TEXT NOT NULL,
+  language TEXT, consent_at TEXT,
+  time_limit_minutes INTEGER NOT NULL DEFAULT 20 CHECK (time_limit_minutes BETWEEN 1 AND 240),
+  state TEXT NOT NULL DEFAULT 'pending_approval'
+    CHECK (state IN ('pending_approval','invited','in_progress','completed','expired','revoked')),
+  plan_json TEXT NOT NULL DEFAULT '[]', q_index INTEGER NOT NULL DEFAULT 0,
+  started_at TEXT, ended_at TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS chat_sessions_candidate ON chat_interview_sessions(candidate_id, created_at);
+CREATE TABLE IF NOT EXISTS chat_interview_messages (
+  id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES chat_interview_sessions(id),
+  sender TEXT NOT NULL CHECK (sender IN ('assistant','candidate')),
+  question_id TEXT, text TEXT NOT NULL, flags_json TEXT NOT NULL DEFAULT '{}',
+  response_seconds INTEGER, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS chat_messages_session ON chat_interview_messages(session_id, created_at);
+CREATE TABLE IF NOT EXISTS chat_interview_reports (
+  id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL REFERENCES candidates(id),
+  session_id TEXT NOT NULL REFERENCES chat_interview_sessions(id),
+  report_json TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chat_report_views (
+  user_id TEXT NOT NULL REFERENCES users(id), candidate_id TEXT NOT NULL REFERENCES candidates(id),
+  viewed_at TEXT NOT NULL, PRIMARY KEY (user_id, candidate_id)
+);
+CREATE TABLE IF NOT EXISTS candidate_decisions (
+  id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL REFERENCES candidates(id),
+  case_id TEXT NOT NULL REFERENCES cases(id),
+  decision TEXT NOT NULL CHECK (decision IN ('advance','hold','reject')),
+  reason TEXT NOT NULL, decided_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS ledger (
   seq INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, actor TEXT NOT NULL,
   type TEXT NOT NULL, case_id TEXT, subject TEXT, body_json TEXT NOT NULL,
@@ -154,6 +188,9 @@ def connect() -> sqlite3.Connection:
         interview_columns = {row["name"] for row in _conn.execute("PRAGMA table_info(interviews)").fetchall()}
         if interview_columns and "completed_at" not in interview_columns:
             _conn.execute("ALTER TABLE interviews ADD COLUMN completed_at TEXT")
+        chat_columns = {row["name"] for row in _conn.execute("PRAGMA table_info(chat_interview_sessions)").fetchall()}
+        if chat_columns and "time_limit_minutes" not in chat_columns:
+            _conn.execute("ALTER TABLE chat_interview_sessions ADD COLUMN time_limit_minutes INTEGER NOT NULL DEFAULT 20")
     return _conn
 
 

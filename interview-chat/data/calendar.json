@@ -1,0 +1,10 @@
+{
+  "timezone": "Africa/Tunis",
+  "work_days": [0, 1, 2, 3, 4],
+  "work_hours": [9, 17],
+  "slot_minutes": 60,
+  "busy": [
+    {"start": "2026-11-02T09:00:00+01:00", "end": "2026-11-02T12:00:00+01:00", "title": "Team meeting"},
+    {"start": "2026-11-03T14:00:00+01:00", "end": "2026-11-03T16:00:00+01:00", "title": "Other interviews"}
+  ]
+}

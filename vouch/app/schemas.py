@@ -70,7 +70,7 @@ class ProposalCreate(Strict):
     candidate_id: str = Field(max_length=64)
     kind: Literal["interview_invite", "follow_up"] = "interview_invite"
     start: str | None = Field(default=None, max_length=40, description="ISO 8601 UTC, e.g. 2030-05-01T10:00:00Z")
-    duration_minutes: int = Field(default=45, ge=15, le=240)
+    duration_minutes: int = Field(default=20, ge=15, le=240)
 
 
 class ProposalEdit(Strict):
@@ -219,3 +219,17 @@ class PolicyUpdate(Strict):
         if value is None:
             raise ValueError("policy fields cannot be null")
         return value
+
+
+class CandidateInterviewStart(Strict):
+    language: Literal["en", "fr", "ar"]
+    consent: Literal[True]
+
+
+class CandidateInterviewAnswer(Strict):
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class CandidateDecision(Strict):
+    decision: Literal["advance", "hold", "reject"]
+    reason: str = Field(min_length=15, max_length=1000)

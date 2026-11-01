@@ -314,6 +314,14 @@
 .inbox-suggestion small{display:block;margin-top:8px;color:var(--muted);font-size:10px}
 .warning-box.inbox-demo-notice{font-size:12px}
 .presenter-guide{border-radius:8px}
+.chat-evidence{margin-top:20px;padding-top:20px;border-top:1px solid var(--line)}
+.chat-transcript{display:flex;flex-direction:column;gap:8px;max-height:480px;overflow:auto;padding:4px}
+.transcript-message{max-width:82%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--subtle)}
+.transcript-message.candidate{align-self:flex-end;background:color-mix(in srgb,var(--primary) 9%,var(--background))}
+.transcript-message p{margin:4px 0;white-space:pre-wrap}.transcript-message small{color:var(--muted)}
+.report-gate,.decision-record{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--subtle)}
+.combined-report{margin-top:12px}.report-requirements{display:grid;gap:12px;margin-top:12px}.report-requirements>article{padding:12px;border:1px solid var(--line);border-radius:8px}.report-requirements h4{margin-top:0}.report-requirements blockquote{margin:6px 0;padding:8px 10px;border-inline-start:3px solid var(--primary);background:var(--subtle)}.report-requirements blockquote small{display:block;margin-top:4px;color:var(--muted)}
+.decision-form{display:grid;gap:10px;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:8px}.decision-form label{display:grid;gap:4px}
 
 @media(max-width:1100px){
   :root{--sidebar-width:216px}

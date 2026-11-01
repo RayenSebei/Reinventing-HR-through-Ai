@@ -20,7 +20,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import cases, config, dashboard, db, gateway, ledger, policy, retention, schemas, scheduling, testmode, workspace
+from . import cases, chat_interview, config, dashboard, db, gateway, ledger, policy, retention, schemas, scheduling, testmode, workspace
 from .errors import ApiError, invalid, not_found
 from .security import check_password, current_user, hash_password, issue_token, require_role
 
@@ -137,7 +137,7 @@ def meta(request: Request):
                    "provider_call_attempted_on_cv_upload": provider_call,
                    "claim_extraction": True,
                    "fallback_to_word_list": True,
-                   "chat_assistant": False,
+                   "chat_assistant": True,
                    "inbox_summarization": False,
                    "autonomous_actions": False,
                },
@@ -441,6 +441,28 @@ def get_candidate(request: Request):
     return ok(cases.get_candidate(u, request.path_params["cand_id"]))
 
 
+@api("GET", "/candidates/{cand_id}/interview")
+def candidate_interview_record(request: Request):
+    user = current_user(request)
+    no_query(request)
+    return ok(chat_interview.staff_view(user, request.path_params["cand_id"]))
+
+
+@api("GET", "/candidates/{cand_id}/interview/report")
+def candidate_interview_report(request: Request):
+    user = current_user(request)
+    no_query(request)
+    return ok(chat_interview.staff_view(user, request.path_params["cand_id"], mark_report_opened=True))
+
+
+@api("POST", "/candidates/{cand_id}/decision")
+async def candidate_decision(request: Request):
+    user = await auth_user(request)
+    body = await body_as(request, schemas.CandidateDecision)
+    return ok(await run_in_threadpool(chat_interview.decide, user, request.path_params["cand_id"],
+                                      body.decision, body.reason), 201)
+
+
 @api("DELETE", "/candidates/{cand_id}")
 async def delete_candidate(request: Request):
     user = await auth_user(request)
@@ -648,6 +670,35 @@ async def test_clock(request: Request):
     return ok(await run_in_threadpool(testmode.set_clock, int(data.get("advance_minutes", 0))))
 
 
+# --- candidate interview (token auth, never staff auth) ---------------------
+def interview_token(request: Request) -> str:
+    return request.headers.get("x-interview-token", "")
+
+
+@api("GET", "/interview/info")
+def interview_info(request: Request):
+    no_query(request)
+    return ok(chat_interview.candidate_info(interview_token(request)))
+
+
+@api("POST", "/interview/start")
+async def interview_start(request: Request):
+    body = await body_as(request, schemas.CandidateInterviewStart)
+    return ok(await run_in_threadpool(chat_interview.start, interview_token(request), body.language, body.consent))
+
+
+@api("POST", "/interview/message")
+async def interview_message(request: Request):
+    body = await body_as(request, schemas.CandidateInterviewAnswer)
+    return ok(await run_in_threadpool(chat_interview.answer, interview_token(request), body.text))
+
+
+@api("POST", "/interview/finish")
+async def interview_finish(request: Request):
+    await body_as(request, schemas.Empty)
+    return ok(await run_in_threadpool(chat_interview.finish, interview_token(request)))
+
+
 # --- app ------------------------------------------------------------------------
 class SecurityHeaders(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -685,6 +736,10 @@ def index(request):
     return FileResponse(STATIC / "app" / "index.html", headers={"Cache-Control": "no-cache"})
 
 
+def candidate_interview_page(request):
+    return FileResponse(STATIC / "candidate" / "interview.html", headers={"Cache-Control": "no-store"})
+
+
 def client_route(request):
     path = request.url.path
     if path == "/api" or path.startswith("/api/") or path == "/static" or path.startswith("/static/"):
@@ -705,6 +760,7 @@ def build_app() -> Starlette:
 
     all_routes = routes + [
         Route("/api/{rest:path}", api_404, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
+        Route("/interview", candidate_interview_page),
         Route("/", index),
         Mount("/static", StaticFiles(directory=str(STATIC)), name="static"),
         Route("/{path:path}", client_route),

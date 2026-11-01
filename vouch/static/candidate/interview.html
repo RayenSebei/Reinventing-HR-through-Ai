@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Vouch candidate interview</title>
+  <link rel="stylesheet" href="/static/candidate/interview.css">
+</head>
+<body>
+  <main class="shell">
+    <header><div><span class="brand">Vouch</span><h1 id="job-title">Candidate interview</h1>
+      <p>AI-assisted first conversation · a person makes every hiring decision</p></div>
+      <output id="timer" class="timer hidden" aria-live="off"></output></header>
+    <div id="error" class="error" role="alert"></div>
+    <section id="consent" class="card hidden">
+      <div class="languages" role="group" aria-label="Language">
+        <button type="button" data-lang="en">English</button><button type="button" data-lang="fr">Français</button><button type="button" data-lang="ar">العربية</button>
+      </div>
+      <p id="notice" dir="auto"></p>
+      <label><input type="checkbox" id="consent-box"> <span id="consent-label"></span></label>
+      <button type="button" id="start" class="primary" disabled></button>
+    </section>
+    <section id="chat-section" class="hidden">
+      <div id="chat" class="chat" aria-live="polite"></div>
+      <div id="composer" class="composer">
+        <p id="warning" class="warning hidden"></p>
+        <label for="answer" id="answer-label">Your answer</label>
+        <textarea id="answer" maxlength="2000" rows="6" dir="auto"></textarea>
+        <div class="actions"><span id="count">0 / 2000</span><button type="button" id="finish"></button><button type="button" id="send" class="primary"></button></div>
+      </div>
+    </section>
+    <section id="done" class="card hidden"><h2 id="done-title"></h2><p id="done-text"></p></section>
+  </main>
+  <script src="/static/candidate/interview.js"></script>
+</body>
+</html>

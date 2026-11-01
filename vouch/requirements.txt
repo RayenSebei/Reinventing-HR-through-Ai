@@ -13,4 +13,5 @@ pytest==9.2.0
 # Only to regenerate the extra test CVs in sentinel_hr/fixtures:
 # playwright>=1.45   (then: playwright install chromium)
 # reportlab>=4.0
-httpx==0.28.1
+httpx2==2.13.0
+tzdata==2026.6

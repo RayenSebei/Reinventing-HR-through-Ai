@@ -228,6 +228,14 @@ def _erase_candidate(cand_id: str, actor: str, reason: str) -> None:
                 path.unlink()
             conn.execute("DELETE FROM findings WHERE document_id=?", (doc["id"],))
         conn.execute("DELETE FROM evidence_items WHERE candidate_id=?", (cand_id,))
+        session_ids = [r["id"] for r in conn.execute(
+            "SELECT id FROM chat_interview_sessions WHERE candidate_id=?", (cand_id,)).fetchall()]
+        for session_id in session_ids:
+            conn.execute("DELETE FROM chat_interview_messages WHERE session_id=?", (session_id,))
+            conn.execute("DELETE FROM chat_interview_reports WHERE session_id=?", (session_id,))
+        conn.execute("DELETE FROM chat_report_views WHERE candidate_id=?", (cand_id,))
+        conn.execute("DELETE FROM candidate_decisions WHERE candidate_id=?", (cand_id,))
+        conn.execute("DELETE FROM chat_interview_sessions WHERE candidate_id=?", (cand_id,))
         proposal_ids = [r["id"] for r in conn.execute("SELECT id FROM proposals WHERE candidate_id=?", (cand_id,))]
         for proposal_id in proposal_ids:
             conn.execute("DELETE FROM approvals WHERE proposal_id=?", (proposal_id,))

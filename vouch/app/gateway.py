@@ -58,7 +58,8 @@ def _validate_payload(payload: dict) -> None:
         _valid_start(payload.get("start"))
 
 
-def draft_text(kind: str, pseudonym: str, case_title: str, start: str, minutes: int) -> tuple[str, str]:
+def draft_text(kind: str, pseudonym: str, case_title: str, start: str, minutes: int,
+               interview_url: str | None = None) -> tuple[str, str]:
     """Template draft. Built only from the case and this candidate's own record."""
     if kind == "follow_up":
         return (f"Following up on your application: {case_title}",
@@ -67,7 +68,9 @@ def draft_text(kind: str, pseudonym: str, case_title: str, start: str, minutes: 
     when = _parse_ts(start).strftime("%A %d %B %Y at %H:%M UTC")
     return (f"Interview invitation: {case_title}",
             f"Hello,\n\nThank you for applying for {case_title}. We would like to invite you to a "
-            f"{minutes}-minute interview on {when}. Please reply to confirm or to suggest another time.\n\n"
+            f"{minutes}-minute first-round written interview. Please complete it before {when}. "
+            "The assistant asks job-related questions and records your answers; a recruiter makes every decision.\n\n"
+            f"Your one-time interview link:\n{interview_url or '[created after approval]'}\n\n"
             f"Regards,\nThe recruitment team")
 
 
@@ -89,14 +92,26 @@ def create_proposal(user: dict, case_id: str, body) -> dict:
         if not selected:
             raise conflict("SHORTLIST_NOT_CONFIRMED",
                            "Confirm a shortlist that explicitly includes this candidate first.")
-        subject, text = draft_text(body.kind, cand["pseudonym"], case["title"], start, body.duration_minutes)
+        interview_url = None
+        chat_session = None
+        if body.kind == "interview_invite":
+            from . import chat_interview
+            session_id, raw_token = chat_interview.pending_credentials()
+            chat_session = (session_id, raw_token, body.duration_minutes)
+            interview_url = f"{config.PUBLIC_BASE_URL}/interview#t={raw_token}"
+        subject, text = draft_text(body.kind, cand["pseudonym"], case["title"], start,
+                                   body.duration_minutes, interview_url)
         payload = {"case_id": case_id, "candidate_id": cand["id"], "kind": body.kind,
                    "recipient": cand["contact_email"], "start": start,
                    "duration_minutes": body.duration_minutes, "subject": subject, "body": text}
+        if interview_url:
+            payload["interview_url"] = interview_url
         _validate_payload(payload)
         h = payload_hash(payload)
         conn.execute("INSERT INTO proposals VALUES (?,?,?,?,?,?,?,?,?,?)",
                      (pid, case_id, cand["id"], body.kind, canonical(payload), h, user["id"], "PENDING_APPROVAL", ts, ts))
+        if chat_session:
+            chat_interview.store_pending_session(conn, case_id, cand["id"], pid, *chat_session)
         ledger.append(conn, user["id"], "PROPOSAL_CREATED", case_id, pid, {"payload_sha256": h, "kind": body.kind})
     return get_proposal(user, pid)
 
@@ -137,6 +152,8 @@ def edit_proposal(user: dict, pid: str, body) -> dict:
     require_case_write(user, p["case_id"], roles=("recruiter",))
     if p["status"] == "EXECUTED":
         raise conflict("ALREADY_EXECUTED", "This action was already carried out.")
+    if p["status"] == "REJECTED":
+        raise conflict("PROPOSAL_REJECTED", "This proposal was rejected. Create a new proposal for another review.")
     payload = db.loads(p["payload_json"])
     changes = body.model_dump(exclude_none=True)
     if "start" in changes:
@@ -144,13 +161,18 @@ def edit_proposal(user: dict, pid: str, body) -> dict:
     payload.update(changes)
     if ("start" in changes or "duration_minutes" in changes) and "body" not in changes and payload["kind"] == "interview_invite":
         case = db.one("SELECT title FROM cases WHERE id=?", (p["case_id"],))
-        payload["subject"], payload["body"] = draft_text(payload["kind"], "", case["title"], payload["start"], payload["duration_minutes"])
+        payload["subject"], payload["body"] = draft_text(
+            payload["kind"], "", case["title"], payload["start"], payload["duration_minutes"],
+            payload.get("interview_url"))
     _validate_payload(payload)
     h = payload_hash(payload)
     with db.tx() as conn:
         # The approval is NOT moved to the new hash. It stays bound to what the manager saw.
         conn.execute("UPDATE proposals SET payload_json=?, payload_sha256=?, updated_at=? WHERE id=?",
                      (canonical(payload), h, db.now(), pid))
+        if payload.get("kind") == "interview_invite" and "duration_minutes" in changes:
+            conn.execute("UPDATE chat_interview_sessions SET time_limit_minutes=? "
+                         "WHERE proposal_id=? AND state='pending_approval'", (payload["duration_minutes"], pid))
         ledger.append(conn, user["id"], "PROPOSAL_EDITED", p["case_id"], pid,
                       {"old_sha256": p["payload_sha256"], "new_sha256": h, "fields": sorted(changes)})
     return get_proposal(user, pid)
@@ -174,6 +196,9 @@ def decide(user: dict, pid: str, decision: str) -> dict:
                       expires.isoformat().replace("+00:00", "Z"), None, db.now()))
         conn.execute("UPDATE proposals SET status=?, updated_at=? WHERE id=?",
                      ("APPROVED" if decision == "approved" else "REJECTED", db.now(), pid))
+        if decision == "rejected" and p["kind"] == "interview_invite":
+            from . import chat_interview
+            chat_interview.revoke_pending_session(conn, pid)
         ledger.append(conn, user["id"], "APPROVED" if decision == "approved" else "REJECTED", p["case_id"], pid,
                       {"payload_sha256": p["payload_sha256"], "approval_id": aid, "nonce": nonce})
     return get_proposal(user, pid)
@@ -234,6 +259,9 @@ def execute(user: dict, pid: str) -> dict:
                             conn.execute("INSERT INTO outbox VALUES (?,?,?,?,?,?,?)",
                                          (oid, pid, p["case_id"], p["payload_json"], "QUEUED", "", db.now()))
                             conn.execute("UPDATE proposals SET status='EXECUTED', updated_at=? WHERE id=?", (db.now(), pid))
+                            if p["kind"] == "interview_invite":
+                                from . import chat_interview
+                                chat_interview.activate_session(conn, pid)
                             ledger.append(conn, user["id"], "EXECUTED", p["case_id"], pid,
                                           {"payload_sha256": current_hash, "approval_id": a["id"], "outbox_id": oid})
     if denial:

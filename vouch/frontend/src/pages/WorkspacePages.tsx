@@ -6,7 +6,7 @@ import { useFieldArray, useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowDown, ArrowUp, CalendarDays, Check, ChevronRight, CircleCheck, Clock3, Download, FileUp, ListTodo, Mail, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2, Upload, Users } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, CalendarDays, Check, ChevronRight, CircleCheck, Clock3, Download, FileUp, Fingerprint, ListTodo, Mail, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2, Upload, Users } from 'lucide-react'
 import { api, apiBlob, ApiError, humanize, type Session } from '@/lib/api'
 import { demoInboxMessages } from '@/lib/demoInbox'
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +38,12 @@ type Dossier = {
   document: { id: string; sha256: string; pages: number; filename: string } | null
   evidence: { criterion_id: string; criterion: string; status: string; quote: string | null; page: number | null; boxes: Box[]; note: string }[]
   findings: { type: string; severity: string; page: number | null; excerpt: string; boxes: Box[] }[]
+}
+type ChatInterviewRecord = {
+  session: null | { id: string; state: string; language: string | null; expires_at: string; started_at: string | null; ended_at: string | null }
+  transcript: { sender: 'assistant' | 'candidate'; text: string; question_id: string | null; response_seconds: number | null; ts: string }[]
+  report: null | { statement: string; answered_questions: number; review_flags: { type: string; question_id?: string; categories?: string[] }[]; requirements: { criterion_id: string; criterion: string; cv_evidence: { status: string; quote: string | null; page: number | null }[]; interview_evidence: { answer: string; response_seconds: number; short_answer: boolean }[] }[] }
+  decisions: { decision: string; reason: string; created_at: string; decided_by_name: string }[]
 }
 type Box = { x0: number; top: number; x1: number; bottom: number }
 type Ranking = { case_id: string; version: number | null; status: string | null; rows: RankingRow[]; statement?: string }
@@ -354,6 +360,51 @@ function useObjectUrl(blob: Blob | undefined) {
   return url
 }
 
+function ChatInterviewEvidence({ session, candidateId }: { session: Session; candidateId: string }) {
+  const client = useQueryClient()
+  const record = useQuery({
+    queryKey: ['chat-interview', candidateId],
+    queryFn: () => api<ChatInterviewRecord>(`/candidates/${candidateId}/interview`, session.token),
+    enabled: !!candidateId,
+  })
+  const [openedReport, setOpenedReport] = useState<ChatInterviewRecord | null>(null)
+  const [decision, setDecision] = useState('hold')
+  const [reason, setReason] = useState('')
+  useEffect(() => { setOpenedReport(null); setReason('') }, [candidateId])
+  const openReport = useMutation({
+    mutationFn: () => api<ChatInterviewRecord>(`/candidates/${candidateId}/interview/report`, session.token),
+    onSuccess: value => { setOpenedReport(value); toast.success('Combined evidence report opened and recorded in the audit trail.') },
+    onError: error => toast.error(error instanceof Error ? error.message : 'The report could not be opened.'),
+  })
+  const saveDecision = useMutation({
+    mutationFn: () => api(`/candidates/${candidateId}/decision`, session.token, { method: 'POST', body: JSON.stringify({ decision, reason }) }),
+    onSuccess: async () => { toast.success('Human decision recorded with its reason.'); setReason(''); await client.invalidateQueries({ queryKey: ['chat-interview', candidateId] }); if (openedReport) setOpenedReport(await api<ChatInterviewRecord>(`/candidates/${candidateId}/interview/report`, session.token)) },
+    onError: error => toast.error(error instanceof Error ? error.message : 'The decision could not be recorded.'),
+  })
+  if (record.isPending) return <LoadingRows count={2}/>
+  if (record.isError) return <QueryError message={record.error.message} retry={() => void record.refetch()}/>
+  const data = record.data
+  if (!data.session) return <NoRows title="No chat interview yet" text="Create, approve, and execute an interview invitation to issue a one-time candidate link."/>
+  const canDecide = session.user.role === 'recruiter' || session.user.role === 'hiring_manager'
+  return <section className="chat-evidence">
+    <div className="panel-heading"><div><h3>Candidate chat interview</h3><p>Timed candidate answers are evidence for human review, never an automated decision.</p></div><Badge variant="outline">{humanize(data.session.state)}</Badge></div>
+    <div className="chat-transcript" aria-label="Interview transcript">{data.transcript.length ? data.transcript.map((message, index) => <article className={`transcript-message ${message.sender}`} key={`${message.ts}-${index}`}>
+      <strong>{message.sender === 'assistant' ? 'Vouch assistant' : 'Candidate'}</strong><p dir="auto">{message.text}</p>
+      {message.sender === 'candidate' && message.response_seconds !== null && <small>Answered in {formatDuration(message.response_seconds)}</small>}
+    </article>) : <p>No answers have been recorded.</p>}</div>
+    {data.report ? <div className="report-gate"><p><strong>Combined CV + interview evidence is available.</strong> Opening it is audit-recorded and required before a human decision.</p><Button variant="outline" disabled={openReport.isPending} onClick={() => openReport.mutate()}>{openReport.isPending ? 'Opening…' : 'Open combined evidence report'}</Button></div> : <div className="honest-note">The combined report appears when the candidate completes or ends the chat interview.</div>}
+    {openedReport?.report && <section className="combined-report"><div className="warning-box"><Fingerprint size={18}/><span>{openedReport.report.statement}</span></div>
+      {openedReport.report.review_flags.length > 0 && <div><h4>Review flags</h4>{openedReport.report.review_flags.map((flag, index) => <Badge variant="outline" className="severity high" key={`${flag.type}-${index}`}>{humanize(flag.type)}</Badge>)}</div>}
+      <div className="report-requirements">{openedReport.report.requirements.map(requirement => <article key={requirement.criterion_id}><h4 dir="auto">{requirement.criterion}</h4>
+        <div><strong>CV evidence</strong>{requirement.cv_evidence.length ? requirement.cv_evidence.map((item, index) => <p key={index} dir="auto"><Badge variant="outline">{humanize(item.status)}</Badge> {item.quote || 'No sourced quote'}</p>) : <p>No CV evidence.</p>}</div>
+        <div><strong>Interview evidence</strong>{requirement.interview_evidence.length ? requirement.interview_evidence.map((item, index) => <blockquote key={index} dir="auto">{item.answer}<small>{formatDuration(item.response_seconds)} response{item.short_answer ? ' · short answer flag' : ''}</small></blockquote>) : <p>No interview answer linked to this criterion.</p>}</div>
+      </article>)}</div>
+    </section>}
+    {data.decisions.length > 0 && <section><h4>Recorded human decisions</h4>{data.decisions.map((item, index) => <article className="decision-record" key={`${item.created_at}-${index}`}><Badge variant="outline">{humanize(item.decision)}</Badge><p dir="auto">{item.reason}</p><small>{item.decided_by_name} · {new Date(item.created_at).toLocaleString()}</small></article>)}</section>}
+    {canDecide && openedReport?.report && <form className="decision-form" onSubmit={event => { event.preventDefault(); saveDecision.mutate() }}><h4>Record a human decision</h4><label>Decision<select value={decision} onChange={event => setDecision(event.target.value)}><option value="advance">Advance</option><option value="hold">Hold</option><option value="reject">Reject</option></select></label><label>Job-related reason<Textarea required minLength={15} maxLength={1000} value={reason} onChange={event => setReason(event.target.value)}/></label><Button type="submit" disabled={saveDecision.isPending || reason.trim().length < 15}>Record decision</Button></form>}
+  </section>
+}
+
 function Evidence({ session, caseItem }: { session: Session; caseItem: CaseItem }) {
   const candidates = useCandidates(session, caseItem.id)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -414,6 +465,7 @@ function Evidence({ session, caseItem }: { session: Session; caseItem: CaseItem 
         <section className="findings-list"><h3>Findings</h3>{dossier.data?.findings.length ? dossier.data.findings.map((item, index) =>
           <article key={`${item.type}-${index}`}><Badge variant="outline" className={`severity ${item.severity}`}>{item.severity}</Badge><strong>{humanize(item.type)}</strong><span dir="auto">{item.excerpt}</span></article>) :
           <NoRows title="No findings" text="No document findings are associated with this CV."/>}</section>
+        <ChatInterviewEvidence session={session} candidateId={candidateId}/>
       </>}
   </section>
 }
@@ -567,7 +619,7 @@ function CaseActions({ session, caseItem }: { session: Session; caseItem: CaseIt
   useEffect(() => { if (!candidateId && candidates.data?.items[0]) setCandidateId(candidates.data.items[0].id) }, [candidateId, candidates.data])
   const create = useMutation({
     mutationFn: () => api<Proposal>(`/cases/${caseItem.id}/proposals`, session.token,
-      { method: 'POST', body: JSON.stringify({ candidate_id: candidateId, kind: 'interview_invite', start: start ? new Date(start).toISOString() : null, duration_minutes: 45 }) }),
+      { method: 'POST', body: JSON.stringify({ candidate_id: candidateId, kind: 'interview_invite', start: start ? new Date(start).toISOString() : null, duration_minutes: 20 }) }),
     onSuccess: async () => { toast.success('Draft created. It is not sent until approved and executed through the gateway.'); setStart(''); await client.invalidateQueries({ queryKey: ['case-proposals', caseItem.id] }) },
     onError: error => toast.error(error instanceof Error ? error.message : 'Proposal could not be drafted.'),
   })
@@ -575,7 +627,7 @@ function CaseActions({ session, caseItem }: { session: Session; caseItem: CaseIt
     {caseItem.can_edit && <div className="surface workspace-form"><h3>Draft an interview invite</h3>
       {candidates.data?.items.length ? <div className="stack-form">
         <label>Shortlisted candidate<select value={candidateId} onChange={event => setCandidateId(event.target.value)}>{candidates.data.items.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.pseudonym}</option>)}</select></label>
-        <label>Proposed start time<input type="datetime-local" value={start} min={new Date().toISOString().slice(0, 16)} onChange={event => setStart(event.target.value)}/></label>
+        <label>Completion deadline<input type="datetime-local" value={start} min={new Date().toISOString().slice(0, 16)} onChange={event => setStart(event.target.value)}/></label>
         <Button onClick={() => create.mutate()} disabled={!candidateId || create.isPending}>Create draft</Button>
       </div> : <NoRows title="No confirmed shortlist" text="Confirm shortlist membership before drafting candidate actions."/>}
     </div>}

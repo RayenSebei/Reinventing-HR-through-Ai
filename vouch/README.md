@@ -37,8 +37,9 @@ SENTINEL scenarios: the original 24 plus three route-privacy regressions.
 4. Open **Approvals** as a hiring manager and review the exact message and SHA-256 hash.
    Editing the draft makes the earlier approval invalid for execution.
 5. Return as a recruiter, execute only an unchanged approved action through the Action
-   Gateway, and show its delivery state in the **Outbox**.
-6. Finish in **Trust Ledger** and **Assurance** to verify the chain and show scenario
+   Gateway, then open its one-time link as the candidate and complete the timed chat.
+6. Return to **Evidence**, open the combined report, and record a reasoned human decision.
+7. Finish in **Trust Ledger** and **Assurance** to verify the chain and show scenario
    outcomes. Presenter mode provides this five-minute sequence in the app.
 
 ## How it works
@@ -49,7 +50,9 @@ CV (PDF) ─► upload + SHA-256 ─► hidden-text check (compare page renders 
         ─► quote checker (is the quote really in the CV?) ─► SOURCED / NEEDS_REVIEW / NOT_FOUND
         ─► deterministic ranking (weights × evidence, no auto-reject) ─► recruiter confirms shortlist
         ─► draft email (proposal + SHA-256 of canonical payload) ─► manager approves THAT hash
-        ─► Action Gateway re-checks everything ─► sandbox outbox ─► (optional) n8n delivers it
+        ─► Action Gateway re-checks everything ─► activates one-time candidate chat link
+        ─► timed multilingual transcript ─► combined evidence report ─► human decision + reason
+        ─► sandbox outbox ─► (optional) n8n delivers it
 every step ─► Trust Ledger (hash chain)
 ```
 
@@ -61,6 +64,7 @@ every step ─► Trust Ledger (hash chain)
 | `app/pii.py` | removes emails, phones, names, addresses, birth dates before the AI or a dossier sees text |
 | `app/ranking.py` | deterministic score, reasons, review flags; nobody is rejected |
 | `app/gateway.py` | proposals, approvals (bound to the hash, expire, single use), the Action Gateway, n8n delivery |
+| `app/chat_interview.py` | one-time candidate links, consent, server timer, guarded chat, transcript, combined report and human decision gate |
 | `app/ledger.py` | hash-chained event log + verification |
 | `app/security.py`, `schemas.py` | login tokens, per-case access, request models that reject unknown fields |
 | `static/app/` | locally built React dashboard assets |
@@ -119,7 +123,8 @@ Original CVs stay on the Vouch server (`data/originals`, read-only). Only visibl
 - Tested on synthetic CVs only. Detection was measured on the repository's fixtures, not on real CVs.
 - The word-list mode is lenient: it finds a word, not real proficiency. The recruiter still decides.
 - Arabic is handled for simple right-to-left lines. Complex mixed-direction lines may still read out of order.
-- Scanned (image-only) CVs and DOCX are not supported yet.
+- The integrated upload path supports PDF, not scanned image-only CVs or DOCX/TXT. The retained standalone interview module has separate DOCX/TXT ingestion.
+- Candidate interview links are bearer credentials; the prototype does not separately verify identity.
 - The ledger is tamper-*evident*: someone with database access could rebuild the whole chain.
 - SENTINEL's attacks are written by the same team. "Independent" testing would need outside contributors.
 - SQLite and one server process: fine for a demo, not for many users.
@@ -167,14 +172,15 @@ Outbox acceptance is distinct from actual external delivery. SENTINEL's model mo
 is read from its report; synthetic stub results do not prove live-model security.
 
 All new rendering uses text nodes, with a lint gate against raw HTML injection.
-Security-critical modules were not changed. Known architecture limitations and
-proposed follow-ups are in [the architecture review](../docs/architecture-review.md).
+Known architecture limitations and proposed follow-ups are in the
+[integration audit](../docs/integration-audit.md).
 
 Dependency versions are pinned in `frontend/package.json` and `package-lock.json`.
 A minimatch 11.0.1 override addresses the lint tool's glob amplification advisory.
 Direct dependency versions and licences are in [frontend dependencies](../docs/frontend-dependencies.md).
 
-Latest validation: 52 backend tests passed (including all 27 SENTINEL scenarios),
-frontend typecheck/lint/build passed, and 21 Playwright tests passed with no CSP
-violations. Playwright captures 16 role/resolution/theme screenshots under
-`frontend/test-results/screenshots/`.
+Latest integration validation: 60 backend tests passed (including all 27 canonical
+SENTINEL scenarios), and frontend typecheck/lint/build passed. The original interview
+module also passed 36 tests and 13/13 live attack scenarios. Playwright was attempted,
+but Chromium exhausted memory on the audit host before assertions; rerun it on the demo
+machine before presenting browser results.
