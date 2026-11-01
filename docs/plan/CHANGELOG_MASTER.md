@@ -14,3 +14,4 @@
 | 2026-11-01 | RB-07 | `VOUCH_MAX_DELIVERY_ATTEMPTS` | new `delivery.retry`, route `POST /api/outbox/{id}/retry`, UI button | 2 red → green | green | remove route |
 | 2026-11-01 | HL-04, R25 | — | `n8n/vouch-deliver.workflow.json` (attribution off, double HMAC) | 2 red → green, 3 guard tests | green | restore the JSON from `6d298e8` |
 | 2026-11-01 | HI-07, TQ-03, TQ-06, TQ-04, DL-06 | `VOUCH_FUZZ_SEQUENCES` | new `tools/`, tests, CI | fuzzer, drill 9/9, 4 scanner tests | green | delete files; restore `checks.yml` |
+| 2026-11-01 | MERGE | — | merge `main` into `vouch-hardening`; dashboard recipient step | 122 / 36 / 27 green | green | `git revert -m 1 <merge sha>` on `vouch-hardening` |

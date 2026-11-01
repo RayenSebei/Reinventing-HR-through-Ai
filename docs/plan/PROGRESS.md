@@ -1,6 +1,9 @@
 # Progress
 
-Branch `vouch-hardening` on top of `6d298e8`. Updated 2026-11-01.
+Branch `vouch-hardening`, merged with `main` at `0706afc` (Rayen's workspace dashboard, agenda, interview-chat). The dashboard is the final product. Updated 2026-11-01.
+
+## Merge with main — DONE
+Suites after the merge: vouch **122 passed**, interview-chat **36 passed**, SENTINEL **27/27**, drill **9/9 red**, secret scan tree + history clean, fuzzer 300 sequences clean; GitHub `Vouch checks` green. Browser check of the dashboard: every page in the demo video loads with no console errors; Actions → confirm recipient → draft → manager approves → execute works.
 
 ## Gate 0 — PASS
 Baseline green (29 / 36 / 24), every G row has a verdict (GROUND_TRUTH.md), no application file changed before the red test run was recorded.
@@ -25,13 +28,13 @@ Baseline green (29 / 36 / 24), every G row has a verdict (GROUND_TRUTH.md), no a
 | ID | Status | Proof |
 |---|---|---|
 | D11 / HI-04 recipient confirmed by a human; CV address only a suggestion; one-address validation (OB-03, AG-02) | DONE | 12 tests, 3 drill rows, fuzzer I5 |
-| HI-03 server-side review gate | DONE | 3 tests, drill row; legacy UI records the review when it opens a dossier |
+| HI-03 server-side review gate (ranking confirm + explicit shortlist) | DONE | 4 tests, 2 drill rows; dashboard and legacy UI record the review when they open a dossier |
 | HL-01/HL-02 DB trigger: outbox needs a used, matching, non-self approval; one outbox row per proposal; outbox payload immutable | DONE | 2 tests, drill row, fuzzer I1/I2 |
-| RB-05 criteria change after analysis (FK crash fixed, evidence archived, re-evaluated, shortlist superseded) | DONE | 2 tests, drill row |
+| RB-05 criteria change after analysis | DROPPED for main's `CRITERIA_LOCKED` (see DECISIONS) | `test_dashboard.py` |
 | RB-07 human retry, same approved bytes, never twice once delivered, attempts recorded | DONE | 2 tests, drill row, fuzzer I9 |
 | HL-04 n8n no longer appends unapproved text; double-HMAC check | DONE | 5 workflow lint tests, drill row; **import on a real n8n still to do** |
 | HI-07 invariant fuzzer (I1, I2, I4, I5, I6, I9) | DONE | `test_invariants.py`; 300 sequences in CI; **10,000 sequences / 80,000 steps / 2,224 sends: 0 violations** |
-| TQ-03 protection-removal drill | DONE (9 rows) | `python -m tools.drill` |
+| TQ-03 protection-removal drill | DONE (9 rows, re-anchored after the merge) | `python -m tools.drill` |
 | HI-01 register enforced by a static test + decision-table triggers | PARTIAL (register written, not enforced by a test) | RECORD_REGISTER.md |
 | HI-02 proposal kind registry | TODO | |
 | HI-04 risk tiers, batch approval for low risk only, step-up for high risk | TODO | |
