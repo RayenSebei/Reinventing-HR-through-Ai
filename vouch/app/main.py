@@ -85,6 +85,32 @@ def ok(data, status=200):
 # --- auth -------------------------------------------------------------------
 _fails: OrderedDict[str, list[float]] = OrderedDict()
 _MAX_LOGIN_KEYS = 10_000
+_WINDOW_S = 300
+_PER_ACCOUNT_AND_CLIENT = 10    # wrong passwords for one account from one client address
+_PER_CLIENT = 30                # wrong passwords from one client address, any account (spraying)
+
+
+def _throttle_key(email: str, client: str) -> str:
+    """Failures count per (account, client address), so a stranger cannot lock the manager out of
+    their own machine by typing wrong passwords for the manager's email. Behind a reverse proxy every
+    request has the proxy's address; that limit is documented in vouch/README.md."""
+    return f"{email}|{client}"
+
+
+def _recent(key: str, now: float | None = None) -> list[float]:
+    now = time.time() if now is None else now
+    if key not in _fails:
+        if len(_fails) >= _MAX_LOGIN_KEYS:
+            _fails.popitem(last=False)
+        _fails[key] = []
+    _fails.move_to_end(key)
+    _fails[key] = [t for t in _fails[key] if now - t < _WINDOW_S]
+    return _fails[key]
+
+
+def _blocked(key: str) -> bool:
+    limit = _PER_CLIENT if key.startswith("*|") else _PER_ACCOUNT_AND_CLIENT
+    return len(_recent(key)) >= limit
 _DUMMY_PASSWORD_HASH = hash_password("vouch-unknown-account-check")
 
 
@@ -95,20 +121,18 @@ async def auth_user(request: Request) -> dict:
 @api("POST", "/auth/login")
 async def login(request: Request):
     body = await body_as(request, schemas.Login)
-    key = body.email.lower()
+    client = request.client.host if request.client else "unknown"
+    email = body.email.lower()
+    key = _throttle_key(email, client)
+    spray = _throttle_key("*", client)
     now = time.time()
-    if key not in _fails:
-        if len(_fails) >= _MAX_LOGIN_KEYS:
-            _fails.popitem(last=False)
-        _fails[key] = []
-    _fails.move_to_end(key)
-    _fails[key] = [t for t in _fails[key] if now - t < 300]
-    if len(_fails[key]) >= 10:
+    if _blocked(key) or _blocked(spray):
         raise ApiError(429, "TOO_MANY_ATTEMPTS", "Too many failed logins. Wait 5 minutes.")
-    u = await run_in_threadpool(db.one, "SELECT * FROM users WHERE lower(email)=?", (key,))
+    u = await run_in_threadpool(db.one, "SELECT * FROM users WHERE lower(email)=?", (email,))
     password_ok = await run_in_threadpool(check_password, body.password, u["pw_hash"] if u else _DUMMY_PASSWORD_HASH)
     if not u or not password_ok:
         _fails[key].append(now)
+        _fails[spray].append(now)
         raise ApiError(401, "BAD_CREDENTIALS", "Wrong email or password.")
     _fails.pop(key, None)
     return ok({"token": issue_token(u["id"]), "user": {"id": u["id"], "email": u["email"], "name": u["name"], "role": u["role"]}})
@@ -616,15 +640,15 @@ async def edit_proposal(request: Request):
 @api("POST", "/proposals/{pid}/approve")
 async def approve(request: Request):
     u = await auth_user(request)
-    await body_as(request, schemas.Comment)
-    return ok(await run_in_threadpool(gateway.decide, u, request.path_params["pid"], "approved"))
+    body = await body_as(request, schemas.Decision)
+    return ok(await run_in_threadpool(gateway.decide, u, request.path_params["pid"], "approved", body.payload_sha256))
 
 
 @api("POST", "/proposals/{pid}/reject")
 async def reject(request: Request):
     u = await auth_user(request)
-    await body_as(request, schemas.Comment)
-    return ok(await run_in_threadpool(gateway.decide, u, request.path_params["pid"], "rejected"))
+    body = await body_as(request, schemas.Decision)
+    return ok(await run_in_threadpool(gateway.decide, u, request.path_params["pid"], "rejected", body.payload_sha256))
 
 
 @api("POST", "/proposals/{pid}/execute")

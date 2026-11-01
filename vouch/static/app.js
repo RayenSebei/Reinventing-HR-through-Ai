@@ -322,7 +322,7 @@ function propCard(p) {
   const btns = el("div", { class: "row" });
   if (p.status !== "EXECUTED") {
     if (isRole("hiring_manager")) {
-      btns.append(el("button", { type: "button", class: "primary", onclick: () => guard(async () => { await api("POST", `/proposals/${p.id}/approve`); banner("Approved. The approval is bound to this exact content.", "ok"); await renderActions(); }), text: "Approve this exact content" }),
+      btns.append(el("button", { type: "button", class: "primary", onclick: () => guard(async () => { await api("POST", `/proposals/${p.id}/approve`, { payload_sha256: p.payload_sha256 }); banner("Approved. The approval is bound to this exact content.", "ok"); await renderActions(); }), text: "Approve this exact content" }),
         el("button", { type: "button", class: "danger", onclick: () => guard(async () => { await api("POST", `/proposals/${p.id}/reject`); await renderActions(); }), text: "Reject" }));
     }
     if (S.case.can_edit && pl.start) {

@@ -45,13 +45,18 @@ def _valid_start(s: str | None) -> str:
 _EMAIL = re.compile(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+")
 
 
+# C0/C1 controls (incl. TAB, VT, FF, NEL) and Unicode line/paragraph separators: any of them can split
+# or fold a mail header in some client or relay.
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
+
+
 def _validate_payload(payload: dict) -> None:
     recipient = payload.get("recipient", "")
     subject = payload.get("subject", "")
     if "\r" in recipient or "\n" in recipient or not _EMAIL.fullmatch(recipient):
         raise invalid("recipient must be a valid email address without line breaks.")
-    if "\r" in subject or "\n" in subject:
-        raise invalid("subject must not contain line breaks.")
+    if not isinstance(subject, str) or len(subject) > 200 or _CONTROL.search(subject):
+        raise invalid("subject must be one line: no line breaks or control characters, at most 200 characters.")
     if payload.get("kind") == "interview_invite":
         _valid_start(payload.get("start"))
 
@@ -157,7 +162,7 @@ def edit_proposal(user: dict, pid: str, body) -> dict:
     return get_proposal(user, pid)
 
 
-def decide(user: dict, pid: str, decision: str) -> dict:
+def decide(user: dict, pid: str, decision: str, viewed_sha256: str | None = None) -> dict:
     p = _proposal_row(pid)
     require_case_read(user, p["case_id"])
     if user["role"] != "hiring_manager" or not is_member(user, p["case_id"]):
@@ -166,10 +171,20 @@ def decide(user: dict, pid: str, decision: str) -> dict:
         raise forbidden("SELF_APPROVAL", "You can't approve your own proposal.")
     if p["status"] == "EXECUTED":
         raise conflict("ALREADY_EXECUTED", "This action was already carried out.")
+    if decision == "approved" and not viewed_sha256:
+        raise ApiError(422, "APPROVAL_HASH_REQUIRED",
+                       "Send the payload_sha256 of the content you reviewed; an approval covers only that content.")
     aid = db.new_id("APPR")
     nonce = secrets.token_hex(8)
     expires = (db.utcnow() + timedelta(minutes=policy.read()["approval_ttl_minutes"])).replace(microsecond=0)
     with db.tx() as conn:
+        # Re-read inside the transaction: the approval binds the hash the manager actually viewed.
+        p = conn.execute("SELECT * FROM proposals WHERE id=?", (pid,)).fetchone()
+        if p["status"] == "EXECUTED":
+            raise conflict("ALREADY_EXECUTED", "This action was already carried out.")
+        if viewed_sha256 and not hmac.compare_digest(viewed_sha256, p["payload_sha256"]):
+            raise conflict("PAYLOAD_CHANGED_SINCE_VIEWED",
+                           "The content changed after you opened it. Review the current version and decide again.")
         conn.execute("INSERT INTO approvals VALUES (?,?,?,?,?,?,?,?,?)",
                      (aid, pid, p["payload_sha256"], user["id"], decision, nonce,
                       expires.isoformat().replace("+00:00", "Z"), None, db.now()))

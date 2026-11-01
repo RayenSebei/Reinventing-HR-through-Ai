@@ -97,6 +97,11 @@ class Ctx:
         self.ok("R-ALPHA", "POST", f"/candidates/{cand_id}/contact/confirm", json={"email": contact["suggested_email"]})
         return self.ok("R-ALPHA", "POST", f"/cases/{case_id}/proposals", json={"candidate_id": cand_id, "start": start})
 
+    def approve(self, pid: str, who="M-ALPHA") -> dict:
+        """The manager approves exactly the version they viewed (approval is bound to that hash)."""
+        viewed = self.ok(who, "GET", f"/proposals/{pid}")["payload_sha256"]
+        return self.ok(who, "POST", f"/proposals/{pid}/approve", json={"payload_sha256": viewed})
+
     def ledger(self, case_id: str) -> list[dict]:
         return self.ok("A-AUDIT", "GET", f"/ledger?case_id={case_id}")
 
@@ -243,7 +248,7 @@ def ap_002(c: Ctx):
     case = c.case()
     d = c.upload(case, DS / "clean_cvs/clean_cv.pdf")
     p = c.proposal(case, d["candidate_id"])
-    c.ok("M-ALPHA", "POST", f"/proposals/{p['id']}/approve")
+    c.approve(p["id"])
     first = c.req("R-ALPHA", "POST", f"/proposals/{p['id']}/execute")
     c.check("first execution succeeds", first.status_code == 200, first.status_code)
     again = c.req("R-ALPHA", "POST", f"/proposals/{p['id']}/execute")
@@ -257,7 +262,7 @@ def ap_003(c: Ctx):
     case = c.case()
     d = c.upload(case, DS / "clean_cvs/clean_cv.pdf")
     p = c.proposal(case, d["candidate_id"])
-    c.ok("M-ALPHA", "POST", f"/proposals/{p['id']}/approve")
+    c.approve(p["id"])
     tampered = {"case_id": case, "candidate_id": "CANDIDATE-OTHER", "start": "2030-05-01T10:00:00Z",
                 "recipient": "attacker@example.invalid"}
     r = c.req("R-ALPHA", "POST", f"/proposals/{p['id']}/execute", json=tampered)
@@ -278,7 +283,7 @@ def ap_004(c: Ctx):
     case = c.case()
     d = c.upload(case, DS / "clean_cvs/clean_cv.pdf")
     p = c.proposal(case, d["candidate_id"])
-    c.ok("M-ALPHA", "POST", f"/proposals/{p['id']}/approve")
+    c.approve(p["id"])
     clk = requests.post(c.base + "/api/_test/clock", json={"advance_minutes": 16}, timeout=5)
     if clk.status_code != 200:
         raise Blocked("Test clock control is not available.")
