@@ -1,0 +1,52 @@
+/* HR assistants: inbox digest, free slots, awaiting replies, HR Q&A. Uses the workspace tokens (light + dark). */
+.digest-stats{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
+.digest-stat{display:flex;align-items:baseline;gap:6px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:12px;color:var(--muted)}
+.digest-stat strong{font-size:18px;color:var(--foreground)}
+.digest-stat.urgent strong{color:var(--danger,#dc2626)}
+.digest-stat.flagged strong{color:#c2410c}
+.digest-status{display:inline-flex;gap:6px;margin-left:auto}
+.digest-group+.digest-group{margin-top:10px}
+.digest-group-title{display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.digest-group-title span{margin-left:auto;font-weight:500;text-transform:none;letter-spacing:0}
+.digest-group-title.cat-security_review{color:var(--danger,#dc2626)}
+.inbox-message-subject .mini,.badge.mini,.mini{margin-right:6px;padding:0 6px;font-size:10px;line-height:16px}
+.badge-row{display:flex;flex-wrap:wrap;gap:6px}
+.security-checks.flagged{border-color:color-mix(in srgb,var(--danger,#dc2626) 45%,var(--line));background:color-mix(in srgb,var(--danger,#dc2626) 5%,var(--background))}
+.finding-list,.link-list{display:grid;gap:6px;margin:0 0 8px;padding:0;list-style:none;font-size:12px}
+.finding-list li,.link-list li{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.link-list code{font-size:11px;word-break:break-all}
+.inbox-original{margin:8px 15px 0;font-size:12px}
+.inbox-original summary{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--muted)}
+.reply-draft{display:grid;gap:8px;margin-top:8px}
+.reply-subject{font-weight:600;font-size:12px}
+.reply-draft .payload-preview{white-space:pre-wrap;font-size:12px}
+.slot-suggest{display:grid;gap:8px;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;background:var(--subtle)}
+.slot-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;font-size:13px;font-weight:550}
+.slot-head span{display:inline-flex;align-items:center;gap:6px}
+.slot-chips,.hr-samples{display:flex;flex-wrap:wrap;gap:6px}
+.slot-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--foreground);font-size:12px;cursor:pointer}
+.slot-chip:hover{border-color:var(--primary)}
+.slot-chip.on{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary);font-weight:600}
+.slot-chip:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.error-text{color:var(--danger,#dc2626);font-size:12px}
+.awaiting-replies{margin-bottom:16px}
+.awaiting-list{display:grid;gap:8px}
+.awaiting-item{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px}
+.awaiting-item.overdue{border-color:color-mix(in srgb,#d97706 55%,var(--line));background:color-mix(in srgb,#d97706 6%,var(--surface))}
+.awaiting-item p{margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.button-link{font-size:12px;font-weight:600;color:var(--primary)}
+.hr-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:12px}
+.hr-chat{display:grid;gap:12px;align-content:start;padding:14px}
+.hr-ask{display:flex;gap:8px}
+.hr-ask input{flex:1;min-height:40px}
+.hr-history{display:grid;gap:10px}
+.hr-answer{padding:12px;border:1px solid var(--line);border-radius:8px;display:grid;gap:6px}
+.hr-answer.abstained{border-style:dashed}
+.hr-question{font-weight:600;font-size:13px}
+.hr-citation{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.hr-answer blockquote{margin:0;padding:8px 12px;border-left:3px solid var(--primary);background:var(--subtle);border-radius:0 6px 6px 0;font-size:13px;line-height:1.5}
+.hr-handbook{padding:14px;font-size:12px;align-self:start}
+.hr-handbook h2{display:flex;align-items:center;gap:6px;font-size:14px;margin-bottom:8px}
+.hr-handbook h3{margin:10px 0 4px;font-size:12px}
+.hr-handbook ul{margin:0;padding-left:16px;color:var(--muted)}
+@media (max-width:860px){.hr-layout{grid-template-columns:1fr}.digest-status{margin-left:0}}
