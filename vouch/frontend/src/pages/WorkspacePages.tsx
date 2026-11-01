@@ -579,7 +579,7 @@ function RecipientConfirm({ session, candidateId }: { session: Session; candidat
   return <div className="recipient-confirm">
     <label>Recipient email<input type="email" value={email} maxLength={254} autoComplete="off" spellCheck={false} onChange={event => setEmail(event.target.value)}/></label>
     <p className="muted small">{contact.data.source === 'placeholder' ? 'No address was found in the CV; enter the one the candidate gave you.' : contact.data.statement}</p>
-    {confirmed && !changed ? <Badge className="success">Confirmed: {confirmed}</Badge> :
+    {confirmed && !changed ? <Badge variant="outline" className="success">Confirmed: {confirmed}</Badge> :
       <Button variant="outline" onClick={() => confirm.mutate()} disabled={!email.trim() || confirm.isPending}>{changed ? 'Confirm new address' : 'Confirm address'}</Button>}
   </div>
 }
