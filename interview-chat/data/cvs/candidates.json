@@ -1,0 +1,22 @@
+[
+  {
+    "file": "cv_amine_ben_salah.pdf",
+    "full_name": "Amine Ben Salah",
+    "email": "amine.bensalah@example.com"
+  },
+  {
+    "file": "cv_yasmine_trabelsi.pdf",
+    "full_name": "Yasmine Trabelsi",
+    "email": "yasmine.trabelsi@example.com"
+  },
+  {
+    "file": "cv_mehdi_gharbi.pdf",
+    "full_name": "Mehdi Gharbi",
+    "email": "mehdi.gharbi@example.com"
+  },
+  {
+    "file": "cv_salma_kefi.docx",
+    "full_name": "Salma Kefi",
+    "email": "salma.kefi@example.com"
+  }
+]

@@ -7,6 +7,7 @@ Our entry for the **Secure AI HR System** hackathon.
 | Folder | What's inside |
 |---|---|
 | [`vouch/`](vouch/README.md) | **The app.** Backend, screens, tests. Start here. |
+| [`interview-chat/`](interview-chat/README.md) | First-round interview by chat with a timer: answers saved for HR, approvals, evidence report, audit log |
 | [`sentinel_hr/`](sentinel_hr/README.md) | Runs 27 attack scenarios (24 original plus 3 route-privacy scenarios) against Vouch |
 | [`sentinel/`](sentinel/documentation/scenario_catalog.md) | The attack scenario library and synthetic CVs (unchanged) |
 | [`n8n/`](n8n/README.md) | n8n workflow that delivers approved emails, signature-checked |

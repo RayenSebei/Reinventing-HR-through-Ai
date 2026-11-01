@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Interview</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+<div class="chat-wrap">
+  <header class="row">
+    <div>
+      <h1 id="job-title">Interview</h1>
+      <div class="small muted">First interview by chat · a recruiter reads every answer and makes every decision</div>
+    </div>
+    <span class="spacer"></span>
+    <span id="timer" class="timer hidden" role="timer" aria-live="off"></span>
+  </header>
+
+  <div id="error" class="error"></div>
+
+  <section id="consent" class="panel stack hidden">
+    <div class="row lang-buttons" role="group" aria-label="Language">
+      <span class="small muted">Language / Langue / اللغة</span>
+      <button data-lang="en" type="button">English</button>
+      <button data-lang="fr" type="button">Français</button>
+      <button data-lang="ar" type="button">العربية</button>
+    </div>
+    <p id="notice" dir="auto"></p>
+    <label class="row consent-label"><input type="checkbox" id="consent-box" class="w-auto"> <span id="consent-label">I have read this and I agree to continue.</span></label>
+    <div class="row"><button id="start" class="primary" type="button" disabled>Start the interview</button></div>
+  </section>
+
+  <section id="chat-section" class="chat-section hidden">
+    <div id="chat" class="chat" aria-live="polite"></div>
+    <div class="composer" id="composer">
+      <div id="time-warning" class="callout warn small hidden" dir="auto"></div>
+      <textarea id="answer" dir="auto" maxlength="2000" placeholder="Type your answer…"></textarea>
+      <div class="row mt">
+        <span id="count" class="small muted">0 / 2000</span>
+        <span class="spacer"></span>
+        <button id="finish" type="button">End interview</button>
+        <button id="send" class="primary" type="button">Send</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="done" class="panel hidden"><p id="done-text" dir="auto"></p></section>
+</div>
+<script src="static/interview.js"></script>
+</body>
+</html>

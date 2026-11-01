@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Interview Assistant · HR</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+
+<section id="login-view" class="login panel stack">
+  <h1>Interview Assistant · HR</h1>
+  <p class="small muted">The AI prepares, HR decides.</p>
+  <div>
+    <label for="username">Username</label>
+    <input id="username" autocomplete="username">
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password">
+  </div>
+  <div class="error" id="login-error"></div>
+  <button class="primary" id="login-btn" type="button">Sign in</button>
+  <p class="small muted">Demo users: sarra (recruiter), karim (hiring manager), admin (HR admin), audit (read-only).</p>
+</section>
+
+<div id="app-view" class="hidden">
+  <header class="top">
+    <div class="brand">Interview <span>Assistant</span></div>
+    <nav class="tabs">
+      <button data-tab="candidates" class="active" type="button">Candidates</button>
+      <button data-tab="approvals" type="button">Approvals <span id="pending-count" class="chip"></span></button>
+      <button data-tab="outbox" type="button">Sent messages</button>
+      <button data-tab="audit" type="button">Audit log</button>
+    </nav>
+    <span class="spacer"></span>
+    <span id="who" class="small muted"></span>
+    <button id="logout" type="button">Sign out</button>
+  </header>
+
+  <main class="app">
+    <div class="error" id="app-error"></div>
+
+    <section id="tab-candidates" class="grid">
+      <div class="stack">
+        <div class="panel stack">
+          <div class="row"><h2>Job</h2><span class="spacer"></span><select id="job-select" class="w-auto"></select></div>
+          <div id="shortlist"></div>
+        </div>
+        <details class="panel" id="upload-panel">
+          <summary><strong>Add a candidate</strong></summary>
+          <label for="up-name">Full name (HR only, never sent to the AI)</label><input id="up-name">
+          <label for="up-email">Email</label><input id="up-email" type="email">
+          <label for="up-file">CV (PDF, DOCX or TXT, max 2 MB)</label><input id="up-file" type="file" accept=".pdf,.docx,.txt">
+          <div class="error" id="up-error"></div>
+          <button class="primary" id="up-btn" type="button">Upload and screen</button>
+        </details>
+      </div>
+      <div id="detail" class="panel stack"><p class="muted">Select a candidate.</p></div>
+    </section>
+
+    <section id="tab-approvals" class="hidden stack">
+      <div class="callout small">Nothing reaches a candidate until a human approves it here. Interview invitations need a second person (four-eyes rule).</div>
+      <div id="approvals"></div>
+    </section>
+
+    <section id="tab-outbox" class="hidden stack">
+      <div class="callout small">Demo mailbox: messages that were approved and "sent". Connect a real mail service in <code>approvals._execute</code>.</div>
+      <div id="outbox"></div>
+    </section>
+
+    <section id="tab-audit" class="hidden stack">
+      <div class="row"><button id="verify" type="button">Verify chain integrity</button><span id="verify-result"></span></div>
+      <div id="audit"></div>
+    </section>
+  </main>
+</div>
+
+<script src="static/hr.js"></script>
+</body>
+</html>
