@@ -205,7 +205,7 @@ function TimeGrid({ days, byDay, onPick, onCreate, loading }: {
   const now = useNow()
   const scroller = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    scroller.current?.scrollTo({ top: (SCROLL_TO_HOUR - HOUR_START) * HOUR_PX })
+    scroller.current?.scrollTo({ top: (SCROLL_TO_HOUR - HOUR_START) * HOUR_PX - 14 })
   }, [])
   const hours = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i)
   const cols = `56px repeat(${days.length}, minmax(0, 1fr))`
@@ -255,7 +255,7 @@ function EventBlock({ event, onPick, style }: { event: AgendaEvent; onPick: (e: 
   const s = startOf(event)
   const time = `${format(s, 'HH:mm')}–${format(endOf(event), 'HH:mm')}`
   const conducted = event.kind === 'interview' ? event.format.conducted_by : null
-  return <button type="button" className={`agenda-event ${eventClass(event)}`} style={style} onClick={() => onPick(event)}
+  return <button type="button" className={`agenda-event ${eventClass(event)}${event.duration_minutes < 45 ? ' short' : ''}`} style={style} onClick={() => onPick(event)}
     aria-label={`${eventLabel(event)}, ${format(s, 'EEEE d MMMM HH:mm')}`}>
     <span className="ev-title" dir="auto">
       {event.kind === 'meeting' && event.private && <Lock size={11}/>}
