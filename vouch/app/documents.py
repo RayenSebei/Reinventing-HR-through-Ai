@@ -187,6 +187,12 @@ def analyse_pdf(data: bytes) -> dict:
                 raise invalid("PDF page dimensions exceed the rendering limits.")
             rendered_pixels += pixels * 2
             render_page = rdoc[i]
+            rw, rh = render_page.get_size()     # the two parsers can disagree; check what gets rasterized
+            actual = math.ceil(rw * RENDER_SCALE) * math.ceil(rh * RENDER_SCALE) if math.isfinite(rw * rh) else 0
+            if not actual or max(rw, rh) > MAX_PAGE_SIDE_PT or \
+                    rendered_pixels + 2 * (max(actual, pixels) - pixels) > MAX_RENDERED_PIXELS:
+                raise invalid("PDF page dimensions exceed the rendering limits.")
+            rendered_pixels += 2 * max(actual - pixels, 0)
             img = np.asarray(render_page.render(scale=RENDER_SCALE, grayscale=True).to_pil())
             textpage = render_page.get_textpage()
             text_objects = list(render_page.get_objects(filter=(raw.FPDF_PAGEOBJ_TEXT,), textpage=textpage))
@@ -392,7 +398,12 @@ def render_page_png(data: bytes, page_no: int, scale: float = 1.5, redact_boxes:
     try:
         if page_no < 1 or page_no > len(doc):
             raise invalid("Page out of range.")
-        img = doc[page_no - 1].render(scale=scale).to_pil()
+        page = doc[page_no - 1]
+        w, h = page.get_size()     # what pdfium will actually rasterize
+        if not (math.isfinite(w) and math.isfinite(h)) or w <= 0 or h <= 0 or max(w, h) > MAX_PAGE_SIDE_PT or \
+                math.ceil(w * scale) * math.ceil(h * scale) > MAX_RENDERED_PIXELS:
+            raise invalid("PDF page dimensions exceed the rendering limits.")
+        img = page.render(scale=scale).to_pil()
         if redact_boxes:
             from PIL import ImageDraw
             draw = ImageDraw.Draw(img)

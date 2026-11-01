@@ -65,6 +65,36 @@ DRILL = {
         '    if row["delivery_status"] in ("DELIVERED", "SANDBOX_ONLY"):\n',
         '    if False:\n',
         ["tests/test_hitl.py::test_retry_after_failure_sends_same_payload_once"]),
+    "approval needs the hash the manager viewed (review P0)": (
+        "app/gateway.py",
+        '    if decision == "approved" and not viewed_sha256:\n',
+        '    if False:\n',
+        ["tests/test_review_findings.py::test_approve_requires_the_hash_the_manager_viewed"]),
+    "approval refused if content changed since viewed (review P0)": (
+        "app/gateway.py",
+        '        if viewed_sha256 and not hmac.compare_digest(viewed_sha256, p["payload_sha256"]):\n',
+        '        if False:\n',
+        ["tests/test_review_findings.py::test_approve_refused_when_content_changed_after_manager_viewed_it"]),
+    "subject rejects every control/line-separator char (review P0)": (
+        "app/gateway.py",
+        '_CONTROL = re.compile(r"[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029]")\n',
+        '_CONTROL = re.compile(r"[\\r\\n]")\n',
+        ["tests/test_review_findings.py::test_subject_rejects_any_line_break_or_control_character"]),
+    "login throttle per account AND client (review P1)": (
+        "app/main.py",
+        '    return f"{email}|{client}"\n',
+        '    return email\n',
+        ["tests/test_review_findings.py::test_failed_logins_from_one_client_do_not_lock_the_manager_elsewhere"]),
+    "extraction redacted for every non-recruiter (review P1)": (
+        "app/cases.py",
+        '    if user["role"] != "recruiter":          # same rule as page_png: only recruiters see contact details\n',
+        '    if user["role"] == "hiring_manager":\n',
+        ["tests/test_review_findings.py::test_extraction_is_redacted_for_every_role_except_recruiter"]),
+    "page preview size guard (review P1)": (
+        "app/documents.py",
+        '        w, h = page.get_size()     # what pdfium will actually rasterize\n',
+        '        w, h = 1.0, 1.0\n',
+        ["tests/test_review_findings.py::test_page_preview_refuses_oversized_pages"]),
     "n8n attribution switched off (HL-04)": (
         "../n8n/vouch-deliver.workflow.json",
         '"appendAttribution": false',

@@ -281,7 +281,7 @@ def extraction(user: dict, doc_id: str) -> dict:
     a = db.loads(d["analysis_json"])
     visible = documents.visible_text(a)
     hidden = documents.hidden_text(a)
-    if user["role"] == "hiring_manager":
+    if user["role"] != "recruiter":          # same rule as page_png: only recruiters see contact details
         visible, hidden = pii.redact(visible), pii.redact(hidden)
     return {"document_id": d["id"], "sha256": d["sha256"], "visible_text": visible,
             "hidden_text": hidden,

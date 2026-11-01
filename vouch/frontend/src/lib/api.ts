@@ -33,6 +33,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   APPROVAL_EXPIRED: 'Blocked: the approval expired. Ask the manager to approve again.',
   NO_VALID_APPROVAL: 'Blocked: no manager approval exists for this action.',
   SELF_APPROVAL: "Blocked: you can't approve your own proposal.",
+  PAYLOAD_CHANGED_SINCE_VIEWED: 'The draft changed after you opened it. The new version is shown now; review it and decide again.',
+  APPROVAL_HASH_REQUIRED: 'Approval must name the exact version you reviewed. Reload and try again.',
   FORBIDDEN_ROLE: 'Not allowed for your role.',
 }
 export class ApiError extends Error {

@@ -26,6 +26,23 @@ def _load_dotenv(path: Path) -> None:
 _load_dotenv(BASE_DIR / ".env")
 
 
+_PLACEHOLDER_KEYS = {"change-me", "changeme", "change_me", "secret", "your-secret-key", "your_secret_key",
+                     "replace-me", "test", "demo", "password"}
+
+
+def check_secret_key(value: str) -> str:
+    """Refuse a known placeholder or a short key: with it, anyone can forge staff tokens."""
+    if value.strip().lower() in _PLACEHOLDER_KEYS or len(value) < 32:
+        raise SystemExit("IB_SECRET_KEY is a placeholder or shorter than 32 characters, so tokens could be forged. "
+                         "Leave it empty (a random key is made at each start) or set a long random value: "
+                         "python -c \"import secrets;print(secrets.token_urlsafe(48))\"")
+    return value
+
+
+def resolve_secret_key(value: str | None) -> str:
+    return check_secret_key(value) if value else secrets.token_urlsafe(48)
+
+
 def _int(name: str, default: int) -> int:
     try:
         return int(os.environ.get(name, default))
@@ -36,7 +53,7 @@ def _int(name: str, default: int) -> int:
 @dataclass
 class Settings:
     db_path: str = field(default_factory=lambda: os.environ.get("IB_DB_PATH", str(BASE_DIR / "interview_bot.db")))
-    secret_key: str = field(default_factory=lambda: os.environ.get("IB_SECRET_KEY") or secrets.token_urlsafe(48))
+    secret_key: str = field(default_factory=lambda: resolve_secret_key(os.environ.get("IB_SECRET_KEY")))
     public_base_url: str = field(default_factory=lambda: os.environ.get("IB_PUBLIC_BASE_URL", "http://localhost:8000"))
 
     # LLM: "mock" (offline, deterministic), "openai" (any OpenAI-compatible API:

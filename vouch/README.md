@@ -12,9 +12,13 @@ You need **Python 3.11 or newer**.
 cd vouch
 pip install -r requirements.txt
 export VOUCH_DEMO_MODE=1        # Windows (cmd): set VOUCH_DEMO_MODE=1
-python -m app --seed --yes      # confirms the wipe; creates users, a case and 10 synthetic CVs
-python -m app
+python -m app --seed --yes      # FIRST RUN ONLY: wipes, creates users, a case and 10 synthetic CVs, then starts
+python -m app                   # every later start: keeps all data
 ```
+
+`--seed` always wipes the database (that is why it needs `--yes`); restart without it to keep your data.
+Sign-in tokens are signed with a random key per process, so a restart signs everyone out. To keep
+sessions across restarts, set `VOUCH_JWT_SECRET` to a long random value (see `.env.example`).
 
 Open **http://127.0.0.1:8000** and sign in with a demo account. With `VOUCH_DEMO_MODE=1`
 every demo password is `demo1234` and the sign-in page shows account shortcuts. Without it,
@@ -177,7 +181,7 @@ Dependency versions are pinned in `frontend/package.json` and `package-lock.json
 A minimatch 11.0.1 override addresses the lint tool's glob amplification advisory.
 Direct dependency versions and licences are in [frontend dependencies](../docs/frontend-dependencies.md).
 
-Latest validation: 52 backend tests passed (including all 27 SENTINEL scenarios),
+Latest validation (2026-11-01): 149 backend tests passed (including all 27 SENTINEL scenarios, `stub` model),
 frontend typecheck/lint/build passed, and 21 Playwright tests passed with no CSP
 violations. Playwright captures 16 role/resolution/theme screenshots under
 `frontend/test-results/screenshots/`.

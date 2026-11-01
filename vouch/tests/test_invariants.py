@@ -134,7 +134,10 @@ def test_invariants_hold_under_random_sequences(world, monkeypatch):
                 val = {"recipient": rng.choice(EMAILS), "subject": "Changed", "start": "2031-01-01T10:00:00Z"}[field]
                 c.patch(f"/api/proposals/{pid}", headers=H(who), json={field: val})
             elif act in ("approve", "reject") and pid:
-                c.post(f"/api/proposals/{pid}/{act}", headers=H(who))
+                # the manager usually approves what they see; sometimes what they saw is already stale
+                cur = db.one("SELECT payload_sha256 FROM proposals WHERE id=?", (pid,))["payload_sha256"]
+                viewed = cur if rng.random() < 0.85 else rng.choice(["0" * 64, "f" * 64])
+                c.post(f"/api/proposals/{pid}/{act}", headers=H(who), json={"payload_sha256": viewed})
             elif act == "execute" and pid:
                 p = db.one("SELECT candidate_id FROM proposals WHERE id=?", (pid,))
                 conf = db.one("SELECT email FROM contact_confirmations WHERE candidate_id=?", (p["candidate_id"],))

@@ -39,13 +39,29 @@ def key_words(c: dict) -> list[str]:
     return [w for w in words if w not in STOPWORDS]
 
 
+_VERB = r"(?:used?|using|worked\s+(?:with|on|in)|work\s+(?:with|on|in)|touched|touch|tried|written|write|programmed|coded|applied)"
 _NEGATED = re.compile(
-    r"\b(?:no\s+(?:professional\s+)?experience\s+with|never\s+(?:used|worked\s+with|applied))\b",
+    r"\b(?:"
+    # English
+    r"no\s+(?:prior\s+|professional\s+|real\s+|hands-on\s+)?(?:experience|knowledge|exposure|background)\s+(?:with|of|in)"
+    r"|without\s+(?:any\s+)?(?:experience|knowledge|exposure)"
+    r"|(?:not|un)\s?(?:familiar|experienced|proficient|comfortable)\s+(?:with|in)"
+    r"|never\s+(?:really\s+)?" + _VERB +
+    r"|(?:have|has|had|did|do|does)\s+(?:not|never)\s+(?:yet\s+)?" + _VERB +
+    r"|(?:haven't|hasn't|hadn't|didn't|don't|doesn't)\s+(?:yet\s+)?" + _VERB +
+    # French
+    r"|(?:aucune|sans|pas\s+d')\s*(?:expérience|connaissance)s?"
+    r"|jamais\s+(?:utilisé|travaillé|pratiqué|codé)"
+    r"|n'ai\s+(?:jamais|pas)\s+(?:utilisé|travaillé|pratiqué|codé)"
+    r"|ne\s+connais\s+pas"
+    r")",
     re.IGNORECASE)
 
 
 def _negated(text: str) -> bool:
-    return bool(_NEGATED.search(text))
+    """A line that says the candidate does NOT have something is never evidence that they do.
+    Conservative: the whole line is skipped, so a mixed line goes to a human as NOT_FOUND."""
+    return bool(_NEGATED.search(text.replace("\u2019", "'")))
 
 
 def _quote_is_negated(quote: str, page: int, pages) -> bool:

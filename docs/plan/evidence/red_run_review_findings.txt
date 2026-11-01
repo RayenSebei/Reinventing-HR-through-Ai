@@ -1,0 +1,508 @@
+FFF.FFFFFFFF.FFFFFFFFFFFF                                                [100%]
+=================================== FAILURES ===================================
+______________ test_approve_requires_the_hash_the_manager_viewed _______________
+
+client = <starlette.testclient.TestClient object at 0x7f0c9f2702f0>
+
+    def test_approve_requires_the_hash_the_manager_viewed(client):
+        p = _proposal(client)
+        r = client.post(f"/api/proposals/{p['id']}/approve", headers=H("U-MGR"), json={})
+>       assert r.status_code == 422 and r.json()["error"]["code"] == "APPROVAL_HASH_REQUIRED"
+E       assert (200 == 422)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_review_findings.py:46: AssertionError
+______ test_approve_refused_when_content_changed_after_manager_viewed_it _______
+
+client = <starlette.testclient.TestClient object at 0x7f0c97a11590>
+
+    def test_approve_refused_when_content_changed_after_manager_viewed_it(client):
+        p = _proposal(client)
+        viewed = client.get(f"/api/proposals/{p['id']}", headers=H("U-MGR")).json()["payload_sha256"]
+        client.patch(f"/api/proposals/{p['id']}", headers=H(), json={"body": "Changed after the manager looked."})
+        r = client.post(f"/api/proposals/{p['id']}/approve", headers=H("U-MGR"), json={"payload_sha256": viewed})
+>       assert r.status_code == 409 and r.json()["error"]["code"] == "PAYLOAD_CHANGED_SINCE_VIEWED"
+E       assert (422 == 409)
+E        +  where 422 = <Response [422 Unprocessable Content]>.status_code
+
+tests/test_review_findings.py:55: AssertionError
+_______________ test_approve_with_the_viewed_current_hash_works ________________
+
+client = <starlette.testclient.TestClient object at 0x7f0c978af4d0>
+
+    def test_approve_with_the_viewed_current_hash_works(client):
+        p = _proposal(client)
+        viewed = client.get(f"/api/proposals/{p['id']}", headers=H("U-MGR")).json()["payload_sha256"]
+        r = client.post(f"/api/proposals/{p['id']}/approve", headers=H("U-MGR"), json={"payload_sha256": viewed})
+>       assert r.status_code == 200
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Content]>.status_code
+
+tests/test_review_findings.py:64: AssertionError
+_ test_subject_rejects_any_line_break_or_control_character[Hi\u2028Bcc: x@evil.example] _
+
+subject = 'Hi\u2028Bcc: x@evil.example'
+
+    @pytest.mark.parametrize("subject", ["Hi
+    Bcc: x@evil.example", "Hi\x85Bcc: x@evil.example", "Hi\x0bthere",
+                                         "Hi\x00", "Hi
+>   x", "Hi\tBcc: x@evil.example"])
+           ^^^^^^^^^^^^^^^^^^^^^^^
+    def test_subject_rejects_any_line_break_or_control_character(subject):
+        with pytest.raises(ApiError):
+E       Failed: DID NOT RAISE ApiError
+
+tests/test_review_findings.py:77: Failed
+_ test_subject_rejects_any_line_break_or_control_character[Hi\x85Bcc: x@evil.example] _
+
+subject = 'Hi\x85Bcc: x@evil.example'
+
+    @pytest.mark.parametrize("subject", ["Hi
+    Bcc: x@evil.example", "Hi\x85Bcc: x@evil.example", "Hi\x0bthere",
+                                         "Hi\x00", "Hi
+>   x", "Hi\tBcc: x@evil.example"])
+           ^^^^^^^^^^^^^^^^^^^^^^^
+    def test_subject_rejects_any_line_break_or_control_character(subject):
+        with pytest.raises(ApiError):
+E       Failed: DID NOT RAISE ApiError
+
+tests/test_review_findings.py:77: Failed
+____ test_subject_rejects_any_line_break_or_control_character[Hi\x0bthere] _____
+
+subject = 'Hi\x0bthere'
+
+    @pytest.mark.parametrize("subject", ["Hi
+    Bcc: x@evil.example", "Hi\x85Bcc: x@evil.example", "Hi\x0bthere",
+                                         "Hi\x00", "Hi
+>   x", "Hi\tBcc: x@evil.example"])
+           ^^^^^^^^^^^^^^^^^^^^^^^
+    def test_subject_rejects_any_line_break_or_control_character(subject):
+        with pytest.raises(ApiError):
+E       Failed: DID NOT RAISE ApiError
+
+tests/test_review_findings.py:77: Failed
+_______ test_subject_rejects_any_line_break_or_control_character[Hi\x00] _______
+
+subject = 'Hi\x00'
+
+    @pytest.mark.parametrize("subject", ["Hi
+    Bcc: x@evil.example", "Hi\x85Bcc: x@evil.example", "Hi\x0bthere",
+                                         "Hi\x00", "Hi
+>   x", "Hi\tBcc: x@evil.example"])
+           ^^^^^^^^^^^^^^^^^^^^^^^
+    def test_subject_rejects_any_line_break_or_control_character(subject):
+        with pytest.raises(ApiError):
+E       Failed: DID NOT RAISE ApiError
+
+tests/test_review_findings.py:77: Failed
+_____ test_subject_rejects_any_line_break_or_control_character[Hi\u2029x] ______
+
+subject = 'Hi\u2029x'
+
+    @pytest.mark.parametrize("subject", ["Hi
+    Bcc: x@evil.example", "Hi\x85Bcc: x@evil.example", "Hi\x0bthere",
+                                         "Hi\x00", "Hi
+>   x", "Hi\tBcc: x@evil.example"])
+           ^^^^^^^^^^^^^^^^^^^^^^^
+    def test_subject_rejects_any_line_break_or_control_character(subject):
+        with pytest.raises(ApiError):
+E       Failed: DID NOT RAISE ApiError
+
+tests/test_review_findings.py:77: Failed
+_ test_subject_rejects_any_line_break_or_control_character[Hi\tBcc: x@evil.example] _
+
+subject = 'Hi\tBcc: x@evil.example'
+
+    @pytest.mark.parametrize("subject", ["Hi
+    Bcc: x@evil.example", "Hi\x85Bcc: x@evil.example", "Hi\x0bthere",
+                                         "Hi\x00", "Hi
+>   x", "Hi\tBcc: x@evil.example"])
+           ^^^^^^^^^^^^^^^^^^^^^^^
+    def test_subject_rejects_any_line_break_or_control_character(subject):
+        with pytest.raises(ApiError):
+E       Failed: DID NOT RAISE ApiError
+
+tests/test_review_findings.py:77: Failed
+_____ test_failed_logins_from_one_client_do_not_lock_the_manager_elsewhere _____
+
+client = <starlette.testclient.TestClient object at 0x7f0c9783a8b0>
+
+    def test_failed_logins_from_one_client_do_not_lock_the_manager_elsewhere(client):
+        for _ in range(12):        # an attacker types wrong passwords for the manager's account
+            client.post("/api/auth/login", json={"email": "manager@vouch.demo", "password": "wrong-password"})
+        assert client.post("/api/auth/login", json={"email": "manager@vouch.demo", "password": "demo1234"}).status_code == 429
+        with TestClient(app, client=("198.51.100.7", 50000)) as office:    # the real manager, another machine
+            r = office.post("/api/auth/login", json={"email": "manager@vouch.demo", "password": "demo1234"})
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"TOO_MANY_ATTEMPTS","message":"Too many failed logins. Wait 5 minutes."}}
+E           assert 429 == 200
+E            +  where 429 = <Response [429 Too Many Requests]>.status_code
+
+tests/test_review_findings.py:88: AssertionError
+______________ test_password_spraying_from_one_client_is_limited _______________
+
+client = <starlette.testclient.TestClient object at 0x7f0c97969150>
+
+    def test_password_spraying_from_one_client_is_limited(client):
+        codes = [client.post("/api/auth/login", json={"email": f"user{i}@vouch.demo", "password": "x"}).status_code
+                 for i in range(60)]
+>       assert 429 in codes
+E       assert 429 in [401, 401, 401, 401, 401, 401, ...]
+
+tests/test_review_findings.py:94: AssertionError
+______ test_extraction_is_redacted_for_every_role_except_recruiter[U-AUD] ______
+
+client = <starlette.testclient.TestClient object at 0x7f0c9796a8b0>
+uid = 'U-AUD'
+
+    @pytest.mark.parametrize("uid", ["U-MGR", "U-AUD", "U-ADM"])
+    def test_extraction_is_redacted_for_every_role_except_recruiter(client, uid):
+        d = upload(client, Path(__file__).resolve().parents[2] / "sentinel_hr" / "fixtures" / "ai004_contact_canary.pdf")
+        doc = d["document"]["id"]
+        r = client.get(f"/api/documents/{doc}/extraction", headers=H(uid))
+        if r.status_code in (403, 404):
+            return                                  # no case access at all is also fine
+        text = r.json()["visible_text"] + r.json()["hidden_text"]
+>       assert "candidate-ai04@example.invalid" not in text and "[EMAIL]" in text
+E       AssertionError: assert ('candidate-a...mple.invalid' not in 'SYNTHETIC C...onal stamps.'
+E         
+E         'candidate-ai04@example.invalid' is contained here:
+E           ct
+E           Email: candidate-ai04@example.invalid
+E           Phone: +1-202-555-0147
+E           Hobby: collects fictional stamps.)
+
+tests/test_review_findings.py:106: AssertionError
+______ test_extraction_is_redacted_for_every_role_except_recruiter[U-ADM] ______
+
+client = <starlette.testclient.TestClient object at 0x7f0c9796a9c0>
+uid = 'U-ADM'
+
+    @pytest.mark.parametrize("uid", ["U-MGR", "U-AUD", "U-ADM"])
+    def test_extraction_is_redacted_for_every_role_except_recruiter(client, uid):
+        d = upload(client, Path(__file__).resolve().parents[2] / "sentinel_hr" / "fixtures" / "ai004_contact_canary.pdf")
+        doc = d["document"]["id"]
+        r = client.get(f"/api/documents/{doc}/extraction", headers=H(uid))
+        if r.status_code in (403, 404):
+            return                                  # no case access at all is also fine
+        text = r.json()["visible_text"] + r.json()["hidden_text"]
+>       assert "candidate-ai04@example.invalid" not in text and "[EMAIL]" in text
+E       AssertionError: assert ('candidate-a...mple.invalid' not in 'SYNTHETIC C...onal stamps.'
+E         
+E         'candidate-ai04@example.invalid' is contained here:
+E           ct
+E           Email: candidate-ai04@example.invalid
+E           Phone: +1-202-555-0147
+E           Hobby: collects fictional stamps.)
+
+tests/test_review_findings.py:106: AssertionError
+_______ test_negated_mentions_are_not_evidence[Not familiar with Python] _______
+
+line = 'Not familiar with Python'
+
+    @pytest.mark.parametrize("line", ["Not familiar with Python", "I have not used Python yet", "Haven't worked with Python",
+                                      "No knowledge of Python", "Never touched Python", "Did not use Python",
+                                      "Aucune expérience en Python", "Jamais utilisé Python", "Sans expérience Python"])
+    def test_negated_mentions_are_not_evidence(line):
+        criterion = {"id": "c1", "label": "Python experience", "aliases": []}
+        pages = {1: [(line, [])]}
+>       assert evidence.lexicon_match(criterion, pages)["status"] == "NOT_FOUND", line
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_findings.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/evidence.py:123: in lexicon_match
+    return {"status": "SOURCED", "quote": text, "page": page, "boxes": _boxes_for(words), "note": ""}
+                                                                       ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+words = []
+
+    def _boxes_for(words):
+>       return [{"x0": min(w["x0"] for w in words), "top": min(w["top"] for w in words),
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "x1": max(w["x1"] for w in words), "bottom": max(w["bottom"] for w in words)}]
+E       ValueError: min() iterable argument is empty
+
+app/evidence.py:77: ValueError
+______ test_negated_mentions_are_not_evidence[I have not used Python yet] ______
+
+line = 'I have not used Python yet'
+
+    @pytest.mark.parametrize("line", ["Not familiar with Python", "I have not used Python yet", "Haven't worked with Python",
+                                      "No knowledge of Python", "Never touched Python", "Did not use Python",
+                                      "Aucune expérience en Python", "Jamais utilisé Python", "Sans expérience Python"])
+    def test_negated_mentions_are_not_evidence(line):
+        criterion = {"id": "c1", "label": "Python experience", "aliases": []}
+        pages = {1: [(line, [])]}
+>       assert evidence.lexicon_match(criterion, pages)["status"] == "NOT_FOUND", line
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_findings.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/evidence.py:123: in lexicon_match
+    return {"status": "SOURCED", "quote": text, "page": page, "boxes": _boxes_for(words), "note": ""}
+                                                                       ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+words = []
+
+    def _boxes_for(words):
+>       return [{"x0": min(w["x0"] for w in words), "top": min(w["top"] for w in words),
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "x1": max(w["x1"] for w in words), "bottom": max(w["bottom"] for w in words)}]
+E       ValueError: min() iterable argument is empty
+
+app/evidence.py:77: ValueError
+______ test_negated_mentions_are_not_evidence[Haven't worked with Python] ______
+
+line = "Haven't worked with Python"
+
+    @pytest.mark.parametrize("line", ["Not familiar with Python", "I have not used Python yet", "Haven't worked with Python",
+                                      "No knowledge of Python", "Never touched Python", "Did not use Python",
+                                      "Aucune expérience en Python", "Jamais utilisé Python", "Sans expérience Python"])
+    def test_negated_mentions_are_not_evidence(line):
+        criterion = {"id": "c1", "label": "Python experience", "aliases": []}
+        pages = {1: [(line, [])]}
+>       assert evidence.lexicon_match(criterion, pages)["status"] == "NOT_FOUND", line
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_findings.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/evidence.py:123: in lexicon_match
+    return {"status": "SOURCED", "quote": text, "page": page, "boxes": _boxes_for(words), "note": ""}
+                                                                       ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+words = []
+
+    def _boxes_for(words):
+>       return [{"x0": min(w["x0"] for w in words), "top": min(w["top"] for w in words),
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "x1": max(w["x1"] for w in words), "bottom": max(w["bottom"] for w in words)}]
+E       ValueError: min() iterable argument is empty
+
+app/evidence.py:77: ValueError
+________ test_negated_mentions_are_not_evidence[No knowledge of Python] ________
+
+line = 'No knowledge of Python'
+
+    @pytest.mark.parametrize("line", ["Not familiar with Python", "I have not used Python yet", "Haven't worked with Python",
+                                      "No knowledge of Python", "Never touched Python", "Did not use Python",
+                                      "Aucune expérience en Python", "Jamais utilisé Python", "Sans expérience Python"])
+    def test_negated_mentions_are_not_evidence(line):
+        criterion = {"id": "c1", "label": "Python experience", "aliases": []}
+        pages = {1: [(line, [])]}
+>       assert evidence.lexicon_match(criterion, pages)["status"] == "NOT_FOUND", line
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_findings.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/evidence.py:123: in lexicon_match
+    return {"status": "SOURCED", "quote": text, "page": page, "boxes": _boxes_for(words), "note": ""}
+                                                                       ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+words = []
+
+    def _boxes_for(words):
+>       return [{"x0": min(w["x0"] for w in words), "top": min(w["top"] for w in words),
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "x1": max(w["x1"] for w in words), "bottom": max(w["bottom"] for w in words)}]
+E       ValueError: min() iterable argument is empty
+
+app/evidence.py:77: ValueError
+_________ test_negated_mentions_are_not_evidence[Never touched Python] _________
+
+line = 'Never touched Python'
+
+    @pytest.mark.parametrize("line", ["Not familiar with Python", "I have not used Python yet", "Haven't worked with Python",
+                                      "No knowledge of Python", "Never touched Python", "Did not use Python",
+                                      "Aucune expérience en Python", "Jamais utilisé Python", "Sans expérience Python"])
+    def test_negated_mentions_are_not_evidence(line):
+        criterion = {"id": "c1", "label": "Python experience", "aliases": []}
+        pages = {1: [(line, [])]}
+>       assert evidence.lexicon_match(criterion, pages)["status"] == "NOT_FOUND", line
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_findings.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/evidence.py:123: in lexicon_match
+    return {"status": "SOURCED", "quote": text, "page": page, "boxes": _boxes_for(words), "note": ""}
+                                                                       ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+words = []
+
+    def _boxes_for(words):
+>       return [{"x0": min(w["x0"] for w in words), "top": min(w["top"] for w in words),
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "x1": max(w["x1"] for w in words), "bottom": max(w["bottom"] for w in words)}]
+E       ValueError: min() iterable argument is empty
+
+app/evidence.py:77: ValueError
+__________ test_negated_mentions_are_not_evidence[Did not use Python] __________
+
+line = 'Did not use Python'
+
+    @pytest.mark.parametrize("line", ["Not familiar with Python", "I have not used Python yet", "Haven't worked with Python",
+                                      "No knowledge of Python", "Never touched Python", "Did not use Python",
+                                      "Aucune expérience en Python", "Jamais utilisé Python", "Sans expérience Python"])
+    def test_negated_mentions_are_not_evidence(line):
+        criterion = {"id": "c1", "label": "Python experience", "aliases": []}
+        pages = {1: [(line, [])]}
+>       assert evidence.lexicon_match(criterion, pages)["status"] == "NOT_FOUND", line
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_findings.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/evidence.py:123: in lexicon_match
+    return {"status": "SOURCED", "quote": text, "page": page, "boxes": _boxes_for(words), "note": ""}
+                                                                       ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+words = []
+
+    def _boxes_for(words):
+>       return [{"x0": min(w["x0"] for w in words), "top": min(w["top"] for w in words),
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "x1": max(w["x1"] for w in words), "bottom": max(w["bottom"] for w in words)}]
+E       ValueError: min() iterable argument is empty
+
+app/evidence.py:77: ValueError
+____ test_negated_mentions_are_not_evidence[Aucune exp\xe9rience en Python] ____
+
+line = 'Aucune expérience en Python'
+
+    @pytest.mark.parametrize("line", ["Not familiar with Python", "I have not used Python yet", "Haven't worked with Python",
+                                      "No knowledge of Python", "Never touched Python", "Did not use Python",
+                                      "Aucune expérience en Python", "Jamais utilisé Python", "Sans expérience Python"])
+    def test_negated_mentions_are_not_evidence(line):
+        criterion = {"id": "c1", "label": "Python experience", "aliases": []}
+        pages = {1: [(line, [])]}
+>       assert evidence.lexicon_match(criterion, pages)["status"] == "NOT_FOUND", line
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_findings.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/evidence.py:123: in lexicon_match
+    return {"status": "SOURCED", "quote": text, "page": page, "boxes": _boxes_for(words), "note": ""}
+                                                                       ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+words = []
+
+    def _boxes_for(words):
+>       return [{"x0": min(w["x0"] for w in words), "top": min(w["top"] for w in words),
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "x1": max(w["x1"] for w in words), "bottom": max(w["bottom"] for w in words)}]
+E       ValueError: min() iterable argument is empty
+
+app/evidence.py:77: ValueError
+_______ test_negated_mentions_are_not_evidence[Jamais utilis\xe9 Python] _______
+
+line = 'Jamais utilisé Python'
+
+    @pytest.mark.parametrize("line", ["Not familiar with Python", "I have not used Python yet", "Haven't worked with Python",
+                                      "No knowledge of Python", "Never touched Python", "Did not use Python",
+                                      "Aucune expérience en Python", "Jamais utilisé Python", "Sans expérience Python"])
+    def test_negated_mentions_are_not_evidence(line):
+        criterion = {"id": "c1", "label": "Python experience", "aliases": []}
+        pages = {1: [(line, [])]}
+>       assert evidence.lexicon_match(criterion, pages)["status"] == "NOT_FOUND", line
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_findings.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/evidence.py:123: in lexicon_match
+    return {"status": "SOURCED", "quote": text, "page": page, "boxes": _boxes_for(words), "note": ""}
+                                                                       ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+words = []
+
+    def _boxes_for(words):
+>       return [{"x0": min(w["x0"] for w in words), "top": min(w["top"] for w in words),
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "x1": max(w["x1"] for w in words), "bottom": max(w["bottom"] for w in words)}]
+E       ValueError: min() iterable argument is empty
+
+app/evidence.py:77: ValueError
+______ test_negated_mentions_are_not_evidence[Sans exp\xe9rience Python] _______
+
+line = 'Sans expérience Python'
+
+    @pytest.mark.parametrize("line", ["Not familiar with Python", "I have not used Python yet", "Haven't worked with Python",
+                                      "No knowledge of Python", "Never touched Python", "Did not use Python",
+                                      "Aucune expérience en Python", "Jamais utilisé Python", "Sans expérience Python"])
+    def test_negated_mentions_are_not_evidence(line):
+        criterion = {"id": "c1", "label": "Python experience", "aliases": []}
+        pages = {1: [(line, [])]}
+>       assert evidence.lexicon_match(criterion, pages)["status"] == "NOT_FOUND", line
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_findings.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/evidence.py:123: in lexicon_match
+    return {"status": "SOURCED", "quote": text, "page": page, "boxes": _boxes_for(words), "note": ""}
+                                                                       ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+words = []
+
+    def _boxes_for(words):
+>       return [{"x0": min(w["x0"] for w in words), "top": min(w["top"] for w in words),
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "x1": max(w["x1"] for w in words), "bottom": max(w["bottom"] for w in words)}]
+E       ValueError: min() iterable argument is empty
+
+app/evidence.py:77: ValueError
+______________________ test_positive_mentions_still_count ______________________
+
+    def test_positive_mentions_still_count():
+        criterion = {"id": "c1", "label": "Python experience", "aliases": []}
+        pages = {1: [("Built Python services for three years; never missed a release", [])]}
+>       assert evidence.lexicon_match(criterion, pages)["status"] != "NOT_FOUND"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_findings.py:123: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/evidence.py:123: in lexicon_match
+    return {"status": "SOURCED", "quote": text, "page": page, "boxes": _boxes_for(words), "note": ""}
+                                                                       ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+words = []
+
+    def _boxes_for(words):
+>       return [{"x0": min(w["x0"] for w in words), "top": min(w["top"] for w in words),
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "x1": max(w["x1"] for w in words), "bottom": max(w["bottom"] for w in words)}]
+E       ValueError: min() iterable argument is empty
+
+app/evidence.py:77: ValueError
+=========================== short test summary info ============================
+FAILED tests/test_review_findings.py::test_approve_requires_the_hash_the_manager_viewed
+FAILED tests/test_review_findings.py::test_approve_refused_when_content_changed_after_manager_viewed_it
+FAILED tests/test_review_findings.py::test_approve_with_the_viewed_current_hash_works
+FAILED tests/test_review_findings.py::test_subject_rejects_any_line_break_or_control_character[Hi\u2028Bcc: x@evil.example]
+FAILED tests/test_review_findings.py::test_subject_rejects_any_line_break_or_control_character[Hi\x85Bcc: x@evil.example]
+FAILED tests/test_review_findings.py::test_subject_rejects_any_line_break_or_control_character[Hi\x0bthere]
+FAILED tests/test_review_findings.py::test_subject_rejects_any_line_break_or_control_character[Hi\x00]
+FAILED tests/test_review_findings.py::test_subject_rejects_any_line_break_or_control_character[Hi\u2029x]
+FAILED tests/test_review_findings.py::test_subject_rejects_any_line_break_or_control_character[Hi\tBcc: x@evil.example]
+FAILED tests/test_review_findings.py::test_failed_logins_from_one_client_do_not_lock_the_manager_elsewhere
+FAILED tests/test_review_findings.py::test_password_spraying_from_one_client_is_limited
+FAILED tests/test_review_findings.py::test_extraction_is_redacted_for_every_role_except_recruiter[U-AUD]
+FAILED tests/test_review_findings.py::test_extraction_is_redacted_for_every_role_except_recruiter[U-ADM]
+FAILED tests/test_review_findings.py::test_negated_mentions_are_not_evidence[Not familiar with Python]
+FAILED tests/test_review_findings.py::test_negated_mentions_are_not_evidence[I have not used Python yet]
+FAILED tests/test_review_findings.py::test_negated_mentions_are_not_evidence[Haven't worked with Python]
+FAILED tests/test_review_findings.py::test_negated_mentions_are_not_evidence[No knowledge of Python]
+FAILED tests/test_review_findings.py::test_negated_mentions_are_not_evidence[Never touched Python]
+FAILED tests/test_review_findings.py::test_negated_mentions_are_not_evidence[Did not use Python]
+FAILED tests/test_review_findings.py::test_negated_mentions_are_not_evidence[Aucune exp\xe9rience en Python]
+FAILED tests/test_review_findings.py::test_negated_mentions_are_not_evidence[Jamais utilis\xe9 Python]
+FAILED tests/test_review_findings.py::test_negated_mentions_are_not_evidence[Sans exp\xe9rience Python]
+FAILED tests/test_review_findings.py::test_positive_mentions_still_count - Va...
+23 failed, 2 passed in 5.39s

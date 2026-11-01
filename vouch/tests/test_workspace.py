@@ -197,7 +197,7 @@ def test_admin_user_and_policy_management(client):
                            json={"candidate_id": "policy-candidate"})
     assert proposal.status_code == 201
     approved = client.post(f"/api/proposals/{proposal.json()['id']}/approve",
-                           headers=auth("U-MGR"), json={})
+                           headers=auth("U-MGR"), json={"payload_sha256": proposal.json()["payload_sha256"]})
     expiry = datetime.fromisoformat(approved.json()["approval"]["expires_at"].replace("Z", "+00:00"))
     assert expiry > datetime.now(timezone.utc) + timedelta(minutes=20)
     assert client.put("/api/admin/policy", headers=admin, json={"approval_ttl_minutes": 0}).status_code == 422

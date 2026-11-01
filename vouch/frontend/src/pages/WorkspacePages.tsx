@@ -706,10 +706,12 @@ export function ApprovalsPage({ session }: Props) {
     enabled: !!cases.data,
   })
   const decision = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: 'approve' | 'reject' }) =>
-      api<Proposal>(`/proposals/${id}/${action}`, session.token, { method: 'POST', body: JSON.stringify({}) }),
+    // The approval is bound to the hash shown on this card; if the recruiter edited the draft since,
+    // the server refuses and the card reloads with the new content.
+    mutationFn: ({ id, action, viewed }: { id: string; action: 'approve' | 'reject'; viewed: string }) =>
+      api<Proposal>(`/proposals/${id}/${action}`, session.token, { method: 'POST', body: JSON.stringify({ payload_sha256: viewed }) }),
     onSuccess: async (_, variables) => { toast.success(variables.action === 'approve' ? 'The exact current payload was approved.' : 'Proposal rejected.'); await client.invalidateQueries({ queryKey: ['approval-inbox'] }) },
-    onError: error => toast.error(error instanceof Error ? error.message : 'Decision could not be recorded.'),
+    onError: async error => { toast.error(error instanceof Error ? error.message : 'Decision could not be recorded.'); await client.invalidateQueries({ queryKey: ['approval-inbox'] }) },
   })
   if (cases.isPending || inbox.isPending) return <LoadingRows/>
   if (cases.isError) return <QueryError message={cases.error.message} retry={() => void cases.refetch()}/>
@@ -725,7 +727,7 @@ export function ApprovalsPage({ session }: Props) {
       <pre className="payload-preview" dir="auto">{JSON.stringify(proposal.payload, null, 2)}</pre>
       {session.user.role === 'hiring_manager' && proposal.status !== 'EXECUTED' &&
         (!proposal.approval || proposal.approval.decision !== 'approved' || !proposal.approval.matches_current_payload || !!proposal.approval.used_at || Date.parse(proposal.approval.expires_at) <= Date.now()) &&
-        <div className="page-actions"><Button onClick={() => decision.mutate({ id: proposal.id, action: 'approve' })} disabled={decision.isPending}><Check size={16}/>Approve this exact payload</Button><Button variant="outline" onClick={() => decision.mutate({ id: proposal.id, action: 'reject' })} disabled={decision.isPending}>Reject</Button></div>}
+        <div className="page-actions"><Button onClick={() => decision.mutate({ id: proposal.id, action: 'approve', viewed: proposal.payload_sha256 })} disabled={decision.isPending}><Check size={16}/>Approve this exact payload</Button><Button variant="outline" onClick={() => decision.mutate({ id: proposal.id, action: 'reject', viewed: proposal.payload_sha256 })} disabled={decision.isPending}>Reject</Button></div>}
     </article>)}</div> : <NoRows title="No approvals to review" text="Pending actions scoped to your cases will appear here."/>}
   </section>
 }

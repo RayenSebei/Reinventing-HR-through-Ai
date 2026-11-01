@@ -22,6 +22,13 @@ class Comment(Strict):
     comment: str = Field(default="", max_length=500)
 
 
+class Decision(Strict):
+    """Approve/reject body. payload_sha256 is the hash of the content the manager was shown;
+    approving needs it, so an edit made after the manager looked can never be approved by accident."""
+    comment: str = Field(default="", max_length=500)
+    payload_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
 class Login(Strict):
     email: str = Field(max_length=200)
     password: str = Field(max_length=200)

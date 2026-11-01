@@ -61,6 +61,12 @@ def confirm_contact(c, cand_id, email=None):
     return c.post(f"/api/candidates/{cand_id}/contact/confirm", headers=H(), json={"email": email})
 
 
+def approve_viewed(c, pid, uid="U-MGR"):
+    """The manager approves exactly the version they just looked at."""
+    viewed = c.get(f"/api/proposals/{pid}", headers=H(uid)).json()["payload_sha256"]
+    return c.post(f"/api/proposals/{pid}/approve", headers=H(uid), json={"payload_sha256": viewed})
+
+
 def ready_proposal(c, approve=True):
     d = upload(c)
     assert shortlist(c).status_code == 200
@@ -69,7 +75,7 @@ def ready_proposal(c, approve=True):
     assert p.status_code == 201, p.text
     p = p.json()
     if approve:
-        assert c.post(f"/api/proposals/{p['id']}/approve", headers=H("U-MGR")).status_code == 200
+        assert approve_viewed(c, p["id"]).status_code == 200
     return d, p
 
 
@@ -126,7 +132,7 @@ def test_contact_never_in_ledger(client):
 def test_execute_refused_when_recipient_differs_from_confirmed(client):
     d, p = ready_proposal(client, approve=False)
     client.patch(f"/api/proposals/{p['id']}", headers=H(), json={"recipient": "other@candidates.example.invalid"})
-    assert client.post(f"/api/proposals/{p['id']}/approve", headers=H("U-MGR")).status_code == 200
+    assert approve_viewed(client, p["id"]).status_code == 200
     r = client.post(f"/api/proposals/{p['id']}/execute", headers=H())
     assert r.status_code == 409 and r.json()["error"]["code"] == "RECIPIENT_NOT_CONFIRMED"
     assert client.get(f"/api/cases/{CASE}/outbox", headers=H()).json() == []

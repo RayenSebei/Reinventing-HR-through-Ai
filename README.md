@@ -17,12 +17,12 @@ Quick start:
 
 ```bash
 cd vouch && pip install -r requirements.txt
-VOUCH_DEMO_MODE=1 python -m app --seed --yes     # Windows: set VOUCH_DEMO_MODE=1 first
-VOUCH_DEMO_MODE=1 python -m app
+VOUCH_DEMO_MODE=1 python -m app --seed --yes     # first run only (wipes + seeds + starts); Windows: set VOUCH_DEMO_MODE=1 first
+VOUCH_DEMO_MODE=1 python -m app                  # later starts keep the data
 # open http://127.0.0.1:8000  (with VOUCH_DEMO_MODE=1 the password for all demo users is demo1234)
 ```
 
-Latest local validation: **52 backend tests passed**, including all 27 SENTINEL scenarios; **21 Playwright smoke tests passed** across four roles, two resolutions and both themes. Browser CSP checks found no violations. These are synthetic demo checks, not a claim of production security; a real-model run remains separate validation.
+Latest local validation (2026-11-01): **149 backend tests passed** (`cd vouch && python -m pytest -q`), **45 interview-chat tests passed**, **27/27 SENTINEL scenarios passed with the `stub` model** (no real-model run yet), and the protection-removal drill turned **15/15** removed protections red (`python -m tools.drill`). The 21 Playwright smoke tests are from the previous frontend change and were not re-run here. These are synthetic demo checks, not a claim of production security.
 
 The role-aware React workspace is available at `/`, with cases, evidence, ranking,
 approvals, ledger, assurance, and administration. The demo seed includes ten
