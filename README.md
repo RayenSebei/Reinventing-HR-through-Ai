@@ -403,7 +403,7 @@ Items 2–4 have a working prototype in pull request #9, which is not merged.
 ## Team
 
 Built for the *Secure AI HR System* hackathon by **Rayen Sebei** ([@RayenSebei](https://github.com/RayenSebei))
-and **Mohamed Mhamdi**, with AI coding assistants (Claude and Codex) used during development.
+and **Mohamed Mhamdi**,**Mouhamed Rayen Mansouri**,**Mahdi Ben Ahmed** with AI coding assistants (Claude and Codex) used during development.
 All CVs, people and companies in this repository are fictional.
 
 No licence file has been added yet, so all rights are reserved by the authors until the team chooses one.
